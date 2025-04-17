@@ -251,6 +251,8 @@ class StateActionToTensor(InvertibleModalityTransform):
             if key not in data:
                 continue
             value = data[key]
+            if isinstance(value, torch.Tensor):
+                value = value.numpy()  # Tensor를 ndarray로 변환
             assert isinstance(
                 value, np.ndarray
             ), f"Unexpected input type: {type(value)}. Expected type: {np.ndarray}"
@@ -471,6 +473,8 @@ class StateActionTransform(InvertibleModalityTransform):
             )
 
     def apply(self, data: dict[str, Any]) -> dict[str, Any]:
+        if isinstance(data, torch.Tensor):
+            data = data.numpy()  # Tensor를 ndarray로 변환
         for key in self.apply_to:
             if key not in data:
                 # We allow some keys to be missing in the data, and only process the keys that are present
