@@ -1,6 +1,6 @@
 ## 문서의 목적
 이 문서는 텔레옵시스템 등을 통해 학습데이터를 수집한 후 slurm 클러스터에서 학습을 진행하고 서빙 장비에서 테스트/추론을 진행하는 방법을 설명합니다.
-더 자세한 내용은 README.md[https://github.com/RLWRLD/Isaac-GR00T/blob/main/README.md]를 참고해주세요.
+더 자세한 내용은 [https://github.com/RLWRLD/Isaac-GR00T/blob/main/README.md]를 참고해주세요.
 
 ## 작업 절차
 
