@@ -9,7 +9,7 @@ ssh -i ~/.ssh/id_rsa storm@210.109.59.241
 git clone https://github.com/RLWRLD/Isaac-GR00T.git
 cd Isaac-GR00T
 scp -r rlwrld@172.30.1.101:/home/rlwrld/robosuite_data/sim_pick_place_v1 ./demo_data/data/
-``정
+```
 
 2. 학습 준비 - 신규 데이터 적용을 위한 modality 설정 파일 추가 및 필요한 코드 수정
 ```sh
