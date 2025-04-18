@@ -37,7 +37,7 @@ sbatch slurm_ft_sim_pick_place_v1.batch
 squeue
 tail -f tmp/slurm-xxxx*.log
 # 학습 완료 후 학습된 결과를 RTX4090 장비에 복사 (체크포인트가 많아서 마지막 것만 빼고 나머지는 삭제하고 진행하는 것이 빠름)
-mkdir -p finetuned_models
+# 테스트 진행할 장비의 Isaac-GR00T 폴더에서 mkdir -p finetuned_models 해서 미리 타겟 폴더 생더
 scp -r tmp/gr00t-1/sim_pick_place_v1 rlwrld@172.30.1.102:/home/storm/Isaac-GR00T/finetuned_models/
 ```
 
