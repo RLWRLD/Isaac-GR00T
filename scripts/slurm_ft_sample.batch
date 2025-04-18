@@ -1,0 +1,17 @@
+#!/bin/bash
+#SBATCH --job-name=gr00t-n1-ft-franka-hook
+#SBATCH --output=tmp/slurm-%j-%x.log
+#SBATCH --partition=batch
+#SBATCH --gpus=1
+
+mkdir -p tmp 2>/dev/null
+mkdir -p tmp/gr00t 2>/dev/null
+
+python scripts/gr00t_finetune.py \
+   --dataset-path ./demo_data/franka_hook \
+   --num-gpus 1 \
+   --output-dir tmp/gr00t-1/franka-hook-checkpoints  \
+   --max-steps 8000 \
+   --data-config franka_hook \
+   --video-backend torchvision_av \
+   > tmp/slurm-$SLURM_JOB_ID-policy.log 2>&1
