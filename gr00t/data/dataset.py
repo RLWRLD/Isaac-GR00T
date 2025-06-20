@@ -60,9 +60,30 @@ def calculate_dataset_statistics(parquet_paths: list[Path]) -> dict:
     dataset_statistics = {}
     for le_modality in all_low_dim_data.columns:
         print(f"Computing statistics for {le_modality}...")
-        np_data = np.vstack(
-            [np.asarray(x, dtype=np.float32) for x in all_low_dim_data[le_modality]]
-        )
+        # Check if the column can be converted to numeric
+        try:
+            # Attempt to stack and convert to float32.
+            # This will raise an error for non-numeric types like strings.
+            np_data_stacked = np.vstack(
+                [np.asarray(x) for x in all_low_dim_data[le_modality]]
+            )
+            # Check if the stacked data can be cast to float32
+            if not np.issubdtype(np_data_stacked.dtype, np.number) and not np.issubdtype(np_data_stacked.dtype, np.bool_):
+                 # If it's not a numeric or boolean type that can be safely converted, skip.
+                if np_data_stacked.dtype.kind not in 'biufc': # check for bool, int, unsigned int, float, complex
+                    print(f"Skipping statistics for non-numeric column {le_modality} with dtype {np_data_stacked.dtype}")
+                    continue
+            
+            # If it's already numeric or can be safely cast, proceed
+            np_data = np.vstack(
+                [np.asarray(x, dtype=np.float32) for x in all_low_dim_data[le_modality]]
+            )
+
+        except ValueError:
+            # If conversion to float32 fails (e.g., for string data), skip this column
+            print(f"Skipping statistics for column {le_modality} due to data type mismatch.")
+            continue
+        
         dataset_statistics[le_modality] = {
             "mean": np.mean(np_data, axis=0).tolist(),
             "std": np.std(np_data, axis=0).tolist(),
