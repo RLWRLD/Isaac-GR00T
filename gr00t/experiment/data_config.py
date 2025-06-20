@@ -1014,6 +1014,12 @@ class Gr1CubeDataConfig(BaseDataConfig):
                 apply_to=self.action_keys,
                 normalization_modes={key: "min_max" for key in self.action_keys},
             ),
+            # concat transforms
+            ConcatTransform(
+                video_concat_order=self.video_keys,
+                state_concat_order=self.state_keys,
+                action_concat_order=self.action_keys,
+            ),
             # model-specific transform
             GR00TTransform(
                 state_horizon=len(self.observation_indices),
@@ -1021,18 +1027,12 @@ class Gr1CubeDataConfig(BaseDataConfig):
                 max_state_dim=64,
                 max_action_dim=32,
             ),
-            # concat transforms
-            ConcatTransform(
-                video_concat_order=self.video_keys,
-                state_concat_order=self.state_keys,
-                action_concat_order=self.action_keys,
-            ),
         ]
         return ComposedModalityTransform(transforms=transforms)
 
 ###########################################################################################
 
-class Gr1HandGestureDataConfig(BaseDataConfig):
+class Gr1GestureDataConfig(BaseDataConfig):
     video_keys = ["video.camera_ego", "video.camera_ext"]
     state_keys = [
         "state.torso_joints",
@@ -1132,15 +1132,11 @@ class AllexCubeDataConfig(BaseDataConfig):
         "state.torso_joints",
         "state.head_joints",
         "state.right_arm_joints",
-        "state.left_arm_joints",
         "state.right_hand_joints",
-        "state.left_hand_joints",
     ]
     action_keys = [
         "action.right_arm_eef_pos",
-        #"action.left_arm_eef_pos",
         "action.right_finger_joints",
-        #"action.left_finger_joints",
     ]
     language_keys = ["annotation.human.task_description"]
     observation_indices = [0]
@@ -1213,7 +1209,6 @@ class AllexCubeDataConfig(BaseDataConfig):
                 state_horizon=len(self.observation_indices),
                 action_horizon=len(self.action_indices),
                 max_state_dim=64,
-                #max_action_dim=42,
                 max_action_dim=32,
             ),
         ]
@@ -1233,6 +1228,6 @@ DATA_CONFIG_MAP = {
     "aloha_put_cube": AlohaPutCubeDataConfig(),
     "mimicgen_box_cleanup": MimicgenBoxCleanupDataConfig(),
     "gr1_cube": Gr1CubeDataConfig(),
-    "gr1_hand_gesture": Gr1HandGestureDataConfig(),
+    "gr1_gesture": Gr1GestureDataConfig(),
     "allex_cube": AllexCubeDataConfig(),
 }
