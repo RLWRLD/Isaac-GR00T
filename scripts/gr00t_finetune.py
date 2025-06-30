@@ -122,6 +122,9 @@ class ArgsConfig:
     balance_trajectory_weights: bool = True
     """Used in LeRobotMixtureDataset. If True, sample trajectories within a dataset weighted by their length; otherwise, equal weighting."""
 
+    # Action dimension
+    action_dim: int = 32
+
 
 #####################################################################################
 # main training function
@@ -180,10 +183,12 @@ def main(config: ArgsConfig):
     # ------------ step 2: load model ------------
     model = GR00T_N1_5.from_pretrained(
         pretrained_model_name_or_path=config.base_model_path,
+        action_dim=config.action_dim,
         tune_llm=config.tune_llm,  # backbone's LLM
         tune_visual=config.tune_visual,  # backbone's vision tower
         tune_projector=config.tune_projector,  # action head's projector
         tune_diffusion_model=config.tune_diffusion_model,  # action head's DiT
+        ignore_mismatched_sizes=True,
     )
 
     # Set the model's compute_dtype to bfloat16
