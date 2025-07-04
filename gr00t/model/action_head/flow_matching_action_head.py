@@ -15,6 +15,7 @@
 
 from dataclasses import dataclass, field
 
+import numpy as np
 import torch
 import torch.nn.functional as F
 from torch import nn
@@ -39,9 +40,25 @@ class CategorySpecificLinear(nn.Module):
         self.b = nn.Parameter(torch.zeros(num_categories, hidden_dim))
 
     def forward(self, x, cat_ids):
-        selected_W = self.W[cat_ids]
-        selected_b = self.b[cat_ids]
-        return torch.bmm(x, selected_W) + selected_b.unsqueeze(1)
+        print(f"DEBUG CategorySpecificLinear: x.shape = {x.shape}, cat_ids type = {type(cat_ids)}, cat_ids = {cat_ids}")
+        
+        # Handle both scalar and tensor cat_ids
+        if isinstance(cat_ids, int):
+            # For scalar cat_ids, we need to handle batch dimension properly
+            selected_W = self.W[cat_ids]  # Shape: [input_dim, hidden_dim]
+            selected_b = self.b[cat_ids]  # Shape: [hidden_dim]
+            print(f"DEBUG CategorySpecificLinear: selected_W.shape = {selected_W.shape}, selected_b.shape = {selected_b.shape}")
+            
+            # Use torch.matmul for proper broadcasting: [B, T, input_dim] @ [input_dim, hidden_dim] -> [B, T, hidden_dim]
+            result = torch.matmul(x, selected_W) + selected_b
+        else:
+            # For tensor cat_ids, use original bmm approach
+            selected_W = self.W[cat_ids]
+            selected_b = self.b[cat_ids]
+            print(f"DEBUG CategorySpecificLinear: selected_W.shape = {selected_W.shape}, selected_b.shape = {selected_b.shape}")
+            result = torch.bmm(x, selected_W) + selected_b.unsqueeze(1)
+            
+        return result
 
 
 class CategorySpecificMLP(nn.Module):
@@ -300,6 +317,9 @@ class FlowmatchingActionHead(nn.Module):
         # Get embodiment ID.
         embodiment_id = action_input.embodiment_id
 
+        # Debug: Check embodiment_id type
+        print(f"DEBUG: embodiment_id type: {type(embodiment_id)}, value: {embodiment_id}")
+
         # Embed state.
         state_features = self.state_encoder(action_input.state, embodiment_id)
 
@@ -354,6 +374,19 @@ class FlowmatchingActionHead(nn.Module):
         # Get vision and language embeddings.
         vl_embeds = backbone_output.backbone_features
         embodiment_id = action_input.embodiment_id
+
+        # Debug: Check embodiment_id type
+        print(f"DEBUG: embodiment_id type: {type(embodiment_id)}, value: {embodiment_id}")
+
+        # Debug: Check state type
+        print(f"DEBUG: action_input.state type: {type(action_input.state)}")
+        print(f"DEBUG: action_input.state shape: {action_input.state.shape}")
+        print(f"DEBUG: action_input.state dtype: {action_input.state.dtype if hasattr(action_input.state, 'dtype') else 'No dtype'}")
+        
+        # Convert state to tensor if it's numpy array
+        if isinstance(action_input.state, np.ndarray):
+            print("DEBUG: Converting numpy array to tensor")
+            action_input.state = torch.from_numpy(action_input.state).to(device=vl_embeds.device, dtype=vl_embeds.dtype)
 
         # Embed state.
         state_features = self.state_encoder(action_input.state, embodiment_id)
