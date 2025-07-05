@@ -81,8 +81,34 @@ def collate(features: List[dict], eagle_processor) -> dict:
                 else:
                     # Normal concatenation for non-empty tensors
                     batch[key] = torch.cat([v for v in values if v.numel() > 0])
+            elif key in ("eagle_input_ids", "eagle_attention_mask"):
+                # Handle sequence data that may have different lengths
+                # Apply padding to make all sequences the same length
+                max_length = max(v.shape[-1] for v in values)
+                padded_values = []
+                for v in values:
+                    if v.shape[-1] < max_length:
+                        # Pad the sequence
+                        if key == "eagle_input_ids":
+                            # Use pad_token_id for input_ids (typically 0)
+                            pad_value = getattr(eagle_processor.tokenizer, 'pad_token_id', 0)
+                        else:
+                            # Use 0 for attention_mask
+                            pad_value = 0
+                        
+                        padding_size = max_length - v.shape[-1]
+                        if v.ndim == 1:
+                            padded_v = torch.cat([v, torch.full((padding_size,), pad_value, dtype=v.dtype, device=v.device)])
+                        else:
+                            padding_shape = list(v.shape)
+                            padding_shape[-1] = padding_size
+                            padded_v = torch.cat([v, torch.full(padding_shape, pad_value, dtype=v.dtype, device=v.device)], dim=-1)
+                        padded_values.append(padded_v)
+                    else:
+                        padded_values.append(v)
+                batch[key] = torch.cat(padded_values)
             else:
-                # For other eagle keys (input_ids, attention_mask), concatenate normally
+                # For other eagle keys, concatenate normally
                 batch[key] = torch.cat(values)
         elif key in ("pixel_values", "image_grid_thw", "attention_mask", "input_ids"):
             # Concat in existing batch dimension.
