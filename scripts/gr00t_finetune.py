@@ -150,6 +150,7 @@ def main(config: ArgsConfig):
 
     modality_configs = data_config_cls.modality_config()
     transforms = data_config_cls.transform()
+    action_dim = data_config_cls.action_dim
 
     # 1.2 data loader: we will use either single dataset or mixture dataset
     if len(config.dataset_path) == 1:
@@ -197,7 +198,7 @@ def main(config: ArgsConfig):
     # Load model
     model = GR00T_N1_5.from_pretrained(
         pretrained_model_name_or_path=config.base_model_path,
-        action_dim=config.action_dim,
+        action_dim=action_dim,
         tune_llm=config.tune_llm,  # backbone's LLM
         tune_visual=config.tune_visual,  # backbone's vision tower
         tune_projector=config.tune_projector,  # action head's projector
