@@ -73,6 +73,7 @@ class Gr00tPolicy(BasePolicy):
         modality_transform: ComposedModalityTransform,
         denoising_steps: Optional[int] = None,
         device: Union[int, str] = "cuda" if torch.cuda.is_available() else "cpu",
+        action_dim: Optional[int] = None,
     ):
         """
         Initialize the Gr00tPolicy.
@@ -100,7 +101,7 @@ class Gr00tPolicy(BasePolicy):
         self._modality_transform.eval()  # set this to eval mode
         self.model_path = Path(model_path)
         self.device = device
-
+        self.action_dim = action_dim
         # Convert string embodiment tag to EmbodimentTag enum if needed
         if isinstance(embodiment_tag, str):
             self.embodiment_tag = EmbodimentTag(embodiment_tag)
@@ -261,7 +262,11 @@ class Gr00tPolicy(BasePolicy):
         return True
 
     def _load_model(self, model_path):
-        model = GR00T_N1_5.from_pretrained(model_path, torch_dtype=COMPUTE_DTYPE)
+        if self.action_dim is not None:
+            model = GR00T_N1_5.from_pretrained(model_path, torch_dtype=COMPUTE_DTYPE, action_dim=self.action_dim)
+        else:
+            model = GR00T_N1_5.from_pretrained(model_path, torch_dtype=COMPUTE_DTYPE)
+            
         model.eval()  # Set model to eval mode
         model.to(device=self.device)  # type: ignore
 

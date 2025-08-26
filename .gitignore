@@ -4,6 +4,7 @@
 # Distribution / packaging
 .Python
 build/
+checkpoints/
 develop-eggs/
 dist/
 downloads/

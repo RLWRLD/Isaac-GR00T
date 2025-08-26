@@ -411,7 +411,14 @@ class FlowmatchingActionHead(nn.Module):
         # this treats the action sequence as a in-painting problem, if the inference_rtc_size is provided, we will take
         # the "action" from the action_input and take the last inference_rtc_size steps as the initial actions
         use_rtc = False
-        if self.config.inference_rtc_overlap_steps is not None and "action" in action_input.keys():
+
+        action_available = False
+        for key in action_input.keys():
+            if key.startswith("action"):
+                action_available = True
+                break
+
+        if self.config.inference_rtc_overlap_steps is not None and action_available:
             assert (
                 "action" in action_input.keys()
             ), "action must be in action_input when using Realtime chunking"
