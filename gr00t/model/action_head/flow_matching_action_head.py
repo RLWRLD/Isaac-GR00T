@@ -416,6 +416,7 @@ class FlowmatchingActionHead(nn.Module):
         for key in action_input.keys():
             if key.startswith("action"):
                 action_available = True
+                print("action available, using RTC")
                 break
 
         if self.config.inference_rtc_overlap_steps is not None and action_available:
