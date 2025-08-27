@@ -178,11 +178,13 @@ class Gr00tPolicy(BasePolicy):
             observations = unsqueeze_dict_values(observations)
 
         # NOTE(YL): ensure keys are all in numpy array
-        for k, v in observations.items():
-            if not isinstance(v, np.ndarray):
-                observations[k] = np.array(v)
+        # for k, v in observations.items():
+        #     if not isinstance(v, np.ndarray):
+        #         observations[k] = np.array(v)
 
         # Apply transforms
+        # print("observations keys", observations.keys())
+        # print("observation shapes", [v.shape for v in observations.values()])
         normalized_input = self.apply_transforms(observations)
 
         # We will set the inference config for the model, which includes the denoising steps, rtc steps, and rtc freeze steps
