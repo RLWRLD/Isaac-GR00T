@@ -1639,7 +1639,7 @@ class allex_theone_bimanual_long_config(BaseDataConfig):
     ]
     language_keys = ["annotation.human.task_description"]
     observation_indices = [0]
-    action_indices = list(range(80))
+    action_indices = list(range(160))
     action_dim = 42
 
     def modality_config(self) -> dict[str, ModalityConfig]:
