@@ -112,7 +112,7 @@ class BaseInferenceServer:
 
                 handler = self._endpoints[endpoint]
                 result = (
-                    handler.handler(request.get("data", {}))
+                    handler.handler(request.get("data", {}), request.get("config", None))
                     if handler.requires_input
                     else handler.handler()
                 )
@@ -160,7 +160,7 @@ class BaseInferenceClient:
         self.call_endpoint("kill", requires_input=False)
 
     def call_endpoint(
-        self, endpoint: str, data: dict | None = None, requires_input: bool = True
+        self, endpoint: str, data: dict | None = None, config: dict | None = None, requires_input: bool = True, 
     ) -> dict:
         """
         Call an endpoint on the server.
@@ -173,6 +173,7 @@ class BaseInferenceClient:
         request: dict = {"endpoint": endpoint}
         if requires_input:
             request["data"] = data
+            request['config'] = config
         if self.api_token:
             request["api_token"] = self.api_token
 

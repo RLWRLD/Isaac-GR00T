@@ -416,14 +416,16 @@ class FlowmatchingActionHead(nn.Module):
         for key in action_input.keys():
             if key.startswith("action"):
                 action_available = True
-                print("action available, using RTC")
                 break
 
         if self.config.inference_rtc_overlap_steps is not None and action_available:
+            print("action available, using RTC")
             assert (
                 "action" in action_input.keys()
             ), "action must be in action_input when using Realtime chunking"
             # take the last prior action [batch, inference_rtc_overlap_steps, action_dim] and move it as the first inference_rtc_overlap_steps steps
+            # print("[DEBUG] action_input: ", action_input["action"])
+            print("[DEBUG] action_input.keys(): ", action_input.keys())
             actions[:, : self.config.inference_rtc_overlap_steps, :] = action_input["action"][
                 :, -self.config.inference_rtc_overlap_steps :, :
             ]

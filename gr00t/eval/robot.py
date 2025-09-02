@@ -47,7 +47,7 @@ class RobotInferenceClient(BaseInferenceClient, BasePolicy):
         super().__init__(host=host, port=port, api_token=api_token)
 
     def get_action(self, observations: Dict[str, Any], config: Dict[str, Any] = None) -> Dict[str, Any]:
-        return self.call_endpoint("get_action", observations, config)
+        return self.call_endpoint("get_action", data=observations, config=config)
 
     def get_modality_config(self) -> Dict[str, ModalityConfig]:
         return self.call_endpoint("get_modality_config", requires_input=False)
