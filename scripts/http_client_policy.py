@@ -39,24 +39,30 @@ class HttpClientPolicy:
 
 class RTCPolicyWrapper:
     """
-    This wraps the vanilla policy.get_action(obs) with a realtime chunking policy wrapper
+    A real-time chunking (RTC) policy wrapper for streaming robot control.
 
-    control_freq: the control frequency of the robot, where number of steps in 1 second
-    denoising_steps: the number of steps to denoise the action
-    max_rtc_overlap_factor: the maximum overlap factor for the RTC policy,
-        0 to 1, where 1 means take entire overlap chunk, 0 means no overlap
+    This class wraps a standard policy's `get_action(obs)` method to enable real-time
+    chunked inference and action denoising, adapting to system latency and control frequency.
+
+    Args:
+        policy (HttpClientPolicy): The underlying policy client to query for actions.
+        control_freq (int): Control frequency of the robot (steps per second).
+        denoising_steps (int): Number of steps to use for action denoising.
+        max_rtc_overlap_factor (float): Maximum overlap factor for RTC, between 0 and 1.
+            1.0 means full overlap (entire overlap chunk used in rtc), 0.0 means no overlap.
+        latency_queue_size (int): Size of the latency queue.
     """
-
     def __init__(
         self,
         policy: HttpClientPolicy,
         control_freq: int,
         denoising_steps: int = 8,
         max_rtc_overlap_factor: float = 0.75,
+        latency_queue_size: int = 10,
     ):
         self.policy = policy
         self.control_freq = control_freq
-        self.latency_queue = deque(maxlen=10)
+        self.latency_queue = deque(maxlen=latency_queue_size)
         self.latency_queue.append(0)  # initialize with 0
         self.denoising_steps = denoising_steps
         self._previous_action = None
