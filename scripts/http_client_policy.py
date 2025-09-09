@@ -52,6 +52,7 @@ class RTCPolicyWrapper:
             1.0 means full overlap (entire overlap chunk used in rtc), 0.0 means no overlap.
         latency_queue_size (int): Size of the latency queue.
     """
+
     def __init__(
         self,
         policy: HttpClientPolicy,
