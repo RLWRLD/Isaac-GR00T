@@ -13,27 +13,48 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import io
+import json
 from dataclasses import dataclass
-from io import BytesIO
 from typing import Any, Callable, Dict
 
-import torch
+import msgpack
+import numpy as np
 import zmq
+import cv2
 
+try:
+    from gr00t.data.dataset import ModalityConfig
+except ImportError:
+    ModalityConfig = None
 
-class TorchSerializer:
+class MsgSerializer:
     @staticmethod
     def to_bytes(data: dict) -> bytes:
-        buffer = BytesIO()
-        torch.save(data, buffer)
-        return buffer.getvalue()
+        return msgpack.packb(data, default=MsgSerializer.encode_custom_classes)
 
     @staticmethod
     def from_bytes(data: bytes) -> dict:
-        buffer = BytesIO(data)
-        obj = torch.load(buffer, weights_only=False)
+        return msgpack.unpackb(data, object_hook=MsgSerializer.decode_custom_classes)
+
+    @staticmethod
+    def decode_custom_classes(obj):
+        if ModalityConfig is not None and "__ModalityConfig_class__" in obj:
+            obj = ModalityConfig(**json.loads(obj["as_json"]))
+        if "__ndarray_class__" in obj:
+            obj = np.load(io.BytesIO(obj["as_npy"]), allow_pickle=False)
         return obj
 
+    @staticmethod
+    def encode_custom_classes(obj):
+        # Only check isinstance if ModalityConfig is a type
+        if ModalityConfig is not None and isinstance(obj, ModalityConfig):
+            return {"__ModalityConfig_class__": True, "as_json": obj.model_dump_json()}
+        if isinstance(obj, np.ndarray):
+            output = io.BytesIO()
+            np.save(output, obj, allow_pickle=False)
+            return {"__ndarray_class__": True, "as_npy": output.getvalue()}
+        return obj
 
 @dataclass
 class EndpointHandler:
@@ -120,12 +141,12 @@ class BaseInferenceServer:
         while self.running:
             try:
                 message = self.socket.recv()
-                request = TorchSerializer.from_bytes(message)
+                request = MsgSerializer.from_bytes(message)
 
                 # Validate token before processing request
                 if not self._validate_token(request):
                     self.socket.send(
-                        TorchSerializer.to_bytes({"error": "Unauthorized: Invalid API token"})
+                        MsgSerializer.to_bytes({"error": "Unauthorized: Invalid API token"})
                     )
                     continue
 
@@ -155,13 +176,13 @@ class BaseInferenceServer:
                         result = handler.handler(request_data)
                 else:
                     result = handler.handler()
-                self.socket.send(TorchSerializer.to_bytes(result))
+                self.socket.send(MsgSerializer.to_bytes(result))
             except Exception as e:
                 print(f"Error in server: {e}")
                 import traceback
 
                 print(traceback.format_exc())
-                self.socket.send(TorchSerializer.to_bytes({"error": str(e)}))
+                self.socket.send(MsgSerializer.to_bytes({"error": str(e)}))
 
 
 class BaseInferenceClient:
@@ -215,9 +236,9 @@ class BaseInferenceClient:
         if self.api_token:
             request["api_token"] = self.api_token
 
-        self.socket.send(TorchSerializer.to_bytes(request))
+        self.socket.send(MsgSerializer.to_bytes(request))
         message = self.socket.recv()
-        response = TorchSerializer.from_bytes(message)
+        response = MsgSerializer.from_bytes(message)
 
         if "error" in response:
             raise RuntimeError(f"Server error: {response['error']}")
@@ -235,9 +256,9 @@ class BaseInferenceClient:
         if self.api_token:
             request["api_token"] = self.api_token
 
-        self.socket.send(TorchSerializer.to_bytes(request))
+        self.socket.send(MsgSerializer.to_bytes(request))
         message = self.socket.recv()
-        response = TorchSerializer.from_bytes(message)
+        response = MsgSerializer.from_bytes(message)
 
         if "error" in response:
             raise RuntimeError(f"Server error: {response['error']}")
@@ -254,6 +275,10 @@ class ExternalRobotInferenceClient(BaseInferenceClient):
     Client for communicating with the RealRobotServer
     """
 
+    def __init__(self, host: str = "localhost", port: int = 5555, api_token: str = None, encode_video: bool = True):
+        super().__init__(host, port, api_token)
+        self.encode_video = encode_video
+
     def get_action(
         self, observations: Dict[str, Any], config: Dict[str, Any] = None
     ) -> Dict[str, Any]:
@@ -262,4 +287,14 @@ class ExternalRobotInferenceClient(BaseInferenceClient):
         The exact definition of the observations is defined
         by the policy, which contains the modalities configuration.
         """
+        observations = self._encode_video(observations)
         return self.call_endpoint_with_args("get_action", observations=observations, config=config)
+
+    def _encode_video(self, observation: dict) -> dict:
+        for key, value in observation.items():
+            if "video" in key:
+                frames = []
+                for frame in value:
+                    frames.append(cv2.imencode(".jpg", frame)[1].tobytes())
+                observation[key] = frames
+        return observation
