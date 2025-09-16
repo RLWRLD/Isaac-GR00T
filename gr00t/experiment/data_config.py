@@ -3527,7 +3527,7 @@ class pos_only_dual_arm_multiview_config(BaseDataConfig):
 
 ###########################################################################################
 class allex_theone_bimanual_handshake_test_config(BaseDataConfig):
-    video_keys = ["video.camera_agentview"]
+    video_keys = ["video.camera_agentview", "video.camera_ext"]
     state_keys = [
         "state.right_arm_joints",
         "state.left_arm_joints",
@@ -3542,7 +3542,7 @@ class allex_theone_bimanual_handshake_test_config(BaseDataConfig):
     ]
     language_keys = ["annotation.human.task_description"]
     observation_indices = [0]
-    action_indices = list(range(320))
+    action_indices = list(range(64))
     action_dim = 44
 
     def modality_config(self) -> dict[str, ModalityConfig]:
@@ -3593,13 +3593,13 @@ class allex_theone_bimanual_handshake_test_config(BaseDataConfig):
             StateActionToTensor(apply_to=self.state_keys),
             StateActionTransform(
                 apply_to=self.state_keys,
-                normalization_modes={key: "min_max" for key in self.state_keys},
+                normalization_modes={key: "q99" for key in self.state_keys},
             ),
             # action transforms
             StateActionToTensor(apply_to=self.action_keys),
             StateActionTransform(
                 apply_to=self.action_keys,
-                normalization_modes={key: "min_max" for key in self.action_keys},
+                normalization_modes={key: "q99" for key in self.action_keys},
             ),
             # concat transforms
             ConcatTransform(
