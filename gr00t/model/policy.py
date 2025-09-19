@@ -171,18 +171,17 @@ class Gr00tPolicy(BasePolicy):
         Returns:
             Dict[str, Any]: The predicted action.
         """
-        # let the get_action handles both batch and single input
-        is_batch = self._check_state_is_batched(observations)
+        # Create a copy to avoid mutating input
+        obs_copy = observations.copy()
+
+        is_batch = self._check_state_is_batched(obs_copy)
         if not is_batch:
-            observations = unsqueeze_dict_values(observations)
+            obs_copy = unsqueeze_dict_values(obs_copy)
 
-        # NOTE(YL): ensure keys are all in numpy array
-        for k, v in observations.items():
+        # Convert to numpy arrays
+        for k, v in obs_copy.items():
             if not isinstance(v, np.ndarray):
-                observations[k] = np.array(v)
-
-        # Apply transforms
-        normalized_input = self.apply_transforms(observations)
+                obs_copy[k] = np.array(v)
 
         # We will set the inference config for the model, which includes the denoising steps, rtc steps, and rtc freeze steps
         if config is not None:
@@ -202,6 +201,7 @@ class Gr00tPolicy(BasePolicy):
                     >= self.model.action_head.config.inference_rtc_frozen_steps
                 ), "rtc_overlap_steps must be greater than or equal to rtc_frozen_steps"
 
+        normalized_input = self.apply_transforms(obs_copy)
         normalized_action = self._get_action_from_normalized_input(normalized_input)
         unnormalized_action = self._get_unnormalized_action(normalized_action)
 
@@ -368,7 +368,7 @@ def unsqueeze_dict_values(data: Dict[str, Any]) -> Dict[str, Any]:
                 v = v.reshape(v.shape[0], 1)
             unsqueezed_data[k] = np.expand_dims(v, axis=0)
         elif isinstance(v, list):
-            unsqueezed_data[k] = np.array(v)
+            unsqueezed_data[k] = np.expand_dims(np.array(v), axis=0)  # Fixed
         elif isinstance(v, torch.Tensor):
             # ensure all value of the dic (value,) is converted to (value, 1)
             if v.shape == (v.shape[0],):
@@ -386,9 +386,9 @@ def squeeze_dict_values(data: Dict[str, Any]) -> Dict[str, Any]:
     squeezed_data = {}
     for k, v in data.items():
         if isinstance(v, np.ndarray):
-            squeezed_data[k] = np.squeeze(v)
+            squeezed_data[k] = np.squeeze(v, axis=0)  # Fixed: only remove batch dim
         elif isinstance(v, torch.Tensor):
-            squeezed_data[k] = v.squeeze()
+            squeezed_data[k] = v.squeeze(0)  # Fixed: only remove batch dim
         else:
             squeezed_data[k] = v
     return squeezed_data

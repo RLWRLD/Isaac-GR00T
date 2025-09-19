@@ -14,6 +14,7 @@
 # limitations under the License.
 
 from typing import Any, Dict
+
 import cv2
 import numpy as np
 
@@ -27,7 +28,14 @@ class RobotInferenceServer(BaseInferenceServer):
     Server with three endpoints for real robot policies
     """
 
-    def __init__(self, model, host: str = "*", port: int = 5555, api_token: str = None, encode_video: bool = True):
+    def __init__(
+        self,
+        model,
+        host: str = "*",
+        port: int = 5555,
+        api_token: str = None,
+        encode_video: bool = True,
+    ):
         super().__init__(host, port, api_token)
         self.encode_video = encode_video
         self.model = model
@@ -52,18 +60,27 @@ class RobotInferenceServer(BaseInferenceServer):
                 frames = []
                 for frame in value:
                     if isinstance(frame, bytes):
-                        frames.append(cv2.imdecode(np.frombuffer(frame, np.uint8), cv2.IMREAD_COLOR))
+                        frames.append(
+                            cv2.imdecode(np.frombuffer(frame, np.uint8), cv2.IMREAD_COLOR)
+                        )
                     else:
                         frames.append(frame)
                 observation[key] = np.array(frames)
         return observation
+
 
 class RobotInferenceClient(BaseInferenceClient, BasePolicy):
     """
     Client for communicating with the RealRobotServer
     """
 
-    def __init__(self, host: str = "localhost", port: int = 5555, api_token: str = None, encode_video: bool = True):
+    def __init__(
+        self,
+        host: str = "localhost",
+        port: int = 5555,
+        api_token: str = None,
+        encode_video: bool = True,
+    ):
         super().__init__(host=host, port=port, api_token=api_token)
         self.encode_video = encode_video
 

@@ -20,7 +20,7 @@ from typing import Any, Dict, List, Literal, Optional
 import numpy as np
 import tyro
 
-from gr00t.data.dataset import LeRobotSingleDataset
+from gr00t.data.dataset import LeRobotSingleDataset, ModalityConfig
 from gr00t.data.embodiment_tags import EMBODIMENT_TAG_MAPPING
 from gr00t.eval.robot import RobotInferenceClient
 from gr00t.experiment.data_config import load_data_config
@@ -116,7 +116,7 @@ class WrapPolicy(BasePolicy):
         assert config is None, "config should be None as we are using default config"
         return self.policy.get_action(observations, self._config)
 
-    def get_modality_config(self) -> Dict[str, "ModalityConfig"]:
+    def get_modality_config(self) -> Dict[str, ModalityConfig]:
         return self.policy.get_modality_config()
 
 

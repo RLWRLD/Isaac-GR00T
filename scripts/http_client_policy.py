@@ -51,6 +51,7 @@ class RTCPolicyWrapper:
         max_rtc_overlap_factor (float): Maximum overlap factor for RTC, between 0 and 1.
             1.0 means full overlap (entire overlap chunk used in rtc), 0.0 means no overlap.
         latency_queue_size (int): Size of the latency queue.
+        systematic_latency_offset (float): Systematic latency offset in seconds.
     """
 
     def __init__(
@@ -60,6 +61,7 @@ class RTCPolicyWrapper:
         denoising_steps: int = 8,
         max_rtc_overlap_factor: float = 0.75,
         latency_queue_size: int = 10,
+        systematic_latency_offset: float = 0.02,
     ):
         self.policy = policy
         self.control_freq = control_freq
@@ -70,6 +72,7 @@ class RTCPolicyWrapper:
         self._last_inference_completion_time = 0
         self._action_horizon = None
         self._max_rtc_overlap_factor = max_rtc_overlap_factor
+        self.systematic_latency_offset = systematic_latency_offset
 
     def get_action(self, observation: dict[str, Any]) -> dict[str, Any]:
         if self._previous_action is not None:
@@ -79,14 +82,14 @@ class RTCPolicyWrapper:
             config = None
         start_time = time.monotonic()
         action = self.policy.get_action(observation, config)
-        self._previous_action = action
+        self._previous_action = action.copy()
 
         # get the action horizon
         if self._action_horizon is None:
             self._set_action_horizon(action)
 
         # update latency
-        latency = time.monotonic() - start_time
+        latency = time.monotonic() - start_time + self.systematic_latency_offset
         if latency > (1 / self.control_freq) * self._action_horizon:
             print(f"Latency is too high: {latency} seconds, skipping")
         else:
@@ -115,9 +118,12 @@ class RTCPolicyWrapper:
         executed_steps = int(self.control_freq * between_inference_time)
         max_rtc_steps = self._action_horizon * self._max_rtc_overlap_factor
 
-        frozen_steps = max(min(frozen_steps, max_rtc_steps), 0)
-        overlap_steps = max(
-            min(self._action_horizon - executed_steps + frozen_steps, max_rtc_steps), frozen_steps
+        frozen_steps = int(max(min(frozen_steps, max_rtc_steps), 0))
+        overlap_steps = int(
+            max(
+                min(self._action_horizon - executed_steps + frozen_steps, max_rtc_steps),
+                frozen_steps,
+            )
         )
 
         assert (

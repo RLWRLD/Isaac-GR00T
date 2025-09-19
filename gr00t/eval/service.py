@@ -18,15 +18,16 @@ import json
 from dataclasses import dataclass
 from typing import Any, Callable, Dict
 
+import cv2
 import msgpack
 import numpy as np
 import zmq
-import cv2
 
 try:
     from gr00t.data.dataset import ModalityConfig
 except ImportError:
     ModalityConfig = None
+
 
 class MsgSerializer:
     @staticmethod
@@ -55,6 +56,7 @@ class MsgSerializer:
             np.save(output, obj, allow_pickle=False)
             return {"__ndarray_class__": True, "as_npy": output.getvalue()}
         return obj
+
 
 @dataclass
 class EndpointHandler:
@@ -275,7 +277,13 @@ class ExternalRobotInferenceClient(BaseInferenceClient):
     Client for communicating with the RealRobotServer
     """
 
-    def __init__(self, host: str = "localhost", port: int = 5555, api_token: str = None, encode_video: bool = True):
+    def __init__(
+        self,
+        host: str = "localhost",
+        port: int = 5555,
+        api_token: str = None,
+        encode_video: bool = True,
+    ):
         super().__init__(host, port, api_token)
         self.encode_video = encode_video
 
