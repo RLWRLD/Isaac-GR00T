@@ -152,7 +152,9 @@ def main(config: ArgsConfig):
     transforms = data_config_cls.transform()
     action_dim = data_config_cls.action_dim
     config.action_dim = action_dim
-    
+    state_dim = getattr(data_config_cls, "state_dim", 64)
+    print("[DEBUG] state_dim:", state_dim)
+
     # 1.2 data loader: we will use either single dataset or mixture dataset
     if len(config.dataset_path) == 1:
         train_dataset = LeRobotSingleDataset(
@@ -200,6 +202,7 @@ def main(config: ArgsConfig):
     model = GR00T_N1_5.from_pretrained(
         pretrained_model_name_or_path=config.base_model_path,
         action_dim=action_dim,
+        max_state_dim=state_dim,
         tune_llm=config.tune_llm,  # backbone's LLM
         tune_visual=config.tune_visual,  # backbone's vision tower
         tune_projector=config.tune_projector,  # action head's projector
@@ -217,6 +220,7 @@ def main(config: ArgsConfig):
         # Update the action head config
         new_action_head_config = model.action_head.config
         new_action_head_config.action_horizon = data_action_horizon
+        new_action_head_config.max_state_dim = state_dim # jaehyun : for torque
 
         # Import the FlowmatchingActionHead class
         from gr00t.model.action_head.flow_matching_action_head import (
