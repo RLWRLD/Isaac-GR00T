@@ -3335,6 +3335,490 @@ class allex_theone_bimanual_neck_ac_joint_long_full_aug_q99_config(BaseDataConfi
         return ComposedModalityTransform(transforms=transforms)
 ###########################################################################################
 
+
+class allex_theone_bimanual_46_long_egoside_aug_config(BaseDataConfig):
+    video_keys = ["video.camera_agentview", "video.camera_ext"]
+    state_keys = [
+        "state.right_arm_joints",
+        "state.left_arm_joints",
+        "state.right_hand_joints",
+        "state.left_hand_joints",
+        "state.neck_joints",
+    ]
+    action_keys = [
+        "action.right_arm_joints",
+        "action.left_arm_joints",
+        "action.right_finger_joints",
+        "action.left_finger_joints",
+        "action.neck_joints",
+    ]
+    language_keys = ["annotation.human.task_description"]
+    observation_indices = [0]
+    action_indices = list(range(64))
+    action_dim = 46
+
+    def modality_config(self) -> dict[str, ModalityConfig]:
+        video_modality = ModalityConfig(
+            delta_indices=self.observation_indices,
+            modality_keys=self.video_keys,
+        )
+
+        state_modality = ModalityConfig(
+            delta_indices=self.observation_indices,
+            modality_keys=self.state_keys,
+        )
+
+        action_modality = ModalityConfig(
+            delta_indices=self.action_indices,
+            modality_keys=self.action_keys,
+        )
+
+        language_modality = ModalityConfig(
+            delta_indices=self.observation_indices,
+            modality_keys=self.language_keys,
+        )
+
+        modality_configs = {
+            "video": video_modality,
+            "state": state_modality,
+            "action": action_modality,
+            "language": language_modality,
+        }
+
+        return modality_configs
+
+    def transform(self) -> ModalityTransform:
+        transforms = [
+            # video transforms
+            VideoToTensor(apply_to=self.video_keys),
+            VideoCrop(apply_to=self.video_keys, scale=0.95),
+            VideoResize(apply_to=self.video_keys, height=224, width=224, interpolation="linear"),
+            VideoColorJitter(
+                apply_to=self.video_keys,
+                brightness=0.8,
+                contrast=0.9,
+                saturation=0.9,
+                hue=0.2,
+            ),
+            VideoToNumpy(apply_to=self.video_keys),
+            # state transforms
+            StateActionToTensor(apply_to=self.state_keys),
+            StateActionTransform(
+                apply_to=self.state_keys,
+                normalization_modes={key: "q99" for key in self.state_keys},
+            ),
+            # action transforms
+            StateActionToTensor(apply_to=self.action_keys),
+            StateActionTransform(
+                apply_to=self.action_keys,
+                normalization_modes={key: "q99" for key in self.action_keys},
+            ),
+            # concat transforms
+            ConcatTransform(
+                video_concat_order=self.video_keys,
+                state_concat_order=self.state_keys,
+                action_concat_order=self.action_keys,
+            ),
+            # model-specific transform
+            GR00TTransform(
+                state_horizon=len(self.observation_indices),
+                action_horizon=len(self.action_indices),
+                max_state_dim=64,
+                max_action_dim=self.action_dim,
+                
+            ),
+        ]
+        return ComposedModalityTransform(transforms=transforms)
+###########################################################################################
+
+
+class allex_theone_bimanual_46_long_ego_side_config(BaseDataConfig):
+    video_keys = ["video.camera_ego_left", "video.camera_side"]
+    state_keys = [
+        "state.right_arm_joints",
+        "state.left_arm_joints",
+        "state.right_hand_joints",
+        "state.left_hand_joints",
+        "state.neck_joints",
+    ]
+    action_keys = [
+        "action.right_arm_joints",
+        "action.left_arm_joints",
+        "action.right_finger_joints",
+        "action.left_finger_joints",
+        "action.neck_joints",
+    ]
+    language_keys = ["annotation.human.task_description"]
+    observation_indices = [0]
+    action_indices = list(range(64))
+    action_dim = 46
+
+    def modality_config(self) -> dict[str, ModalityConfig]:
+        video_modality = ModalityConfig(
+            delta_indices=self.observation_indices,
+            modality_keys=self.video_keys,
+        )
+
+        state_modality = ModalityConfig(
+            delta_indices=self.observation_indices,
+            modality_keys=self.state_keys,
+        )
+
+        action_modality = ModalityConfig(
+            delta_indices=self.action_indices,
+            modality_keys=self.action_keys,
+        )
+
+        language_modality = ModalityConfig(
+            delta_indices=self.observation_indices,
+            modality_keys=self.language_keys,
+        )
+
+        modality_configs = {
+            "video": video_modality,
+            "state": state_modality,
+            "action": action_modality,
+            "language": language_modality,
+        }
+
+        return modality_configs
+
+    def transform(self) -> ModalityTransform:
+        transforms = [
+            # video transforms
+            VideoToTensor(apply_to=self.video_keys),
+            VideoPerspective(apply_to=["video.camera_side"], distortion=0.05, p=0.5),
+            VideoCrop(apply_to=self.video_keys, scale=0.95),
+            VideoResize(apply_to=self.video_keys, height=224, width=224, interpolation="linear"),
+            VideoColorJitter(
+                apply_to=self.video_keys,
+                brightness=0.8,
+                contrast=0.9,
+                saturation=0.9,
+                hue=0.2,
+            ),
+            VideoToNumpy(apply_to=self.video_keys),
+            # state transforms
+            StateActionToTensor(apply_to=self.state_keys),
+            StateActionTransform(
+                apply_to=self.state_keys,
+                normalization_modes={key: "q99" for key in self.state_keys},
+            ),
+            # action transforms
+            StateActionToTensor(apply_to=self.action_keys),
+            StateActionTransform(
+                apply_to=self.action_keys,
+                normalization_modes={key: "q99" for key in self.action_keys},
+            ),
+            # concat transforms
+            ConcatTransform(
+                video_concat_order=self.video_keys,
+                state_concat_order=self.state_keys,
+                action_concat_order=self.action_keys,
+            ),
+            # model-specific transform
+            GR00TTransform(
+                state_horizon=len(self.observation_indices),
+                action_horizon=len(self.action_indices),
+                max_state_dim=64,
+                max_action_dim=self.action_dim,
+                
+            ),
+        ]
+        return ComposedModalityTransform(transforms=transforms)
+###########################################################################################
+
+
+class allex_theone_bimanual_46_short_ego_side_config(BaseDataConfig):
+    video_keys = ["video.camera_ego_left", "video.camera_side"]
+    state_keys = [
+        "state.right_arm_joints",
+        "state.left_arm_joints",
+        "state.right_hand_joints",
+        "state.left_hand_joints",
+        "state.neck_joints",
+    ]
+    action_keys = [
+        "action.right_arm_joints",
+        "action.left_arm_joints",
+        "action.right_finger_joints",
+        "action.left_finger_joints",
+        "action.neck_joints",
+    ]
+    language_keys = ["annotation.human.task_description"]
+    observation_indices = [0]
+    action_indices = list(range(32))
+    action_dim = 46
+
+    def modality_config(self) -> dict[str, ModalityConfig]:
+        video_modality = ModalityConfig(
+            delta_indices=self.observation_indices,
+            modality_keys=self.video_keys,
+        )
+
+        state_modality = ModalityConfig(
+            delta_indices=self.observation_indices,
+            modality_keys=self.state_keys,
+        )
+
+        action_modality = ModalityConfig(
+            delta_indices=self.action_indices,
+            modality_keys=self.action_keys,
+        )
+
+        language_modality = ModalityConfig(
+            delta_indices=self.observation_indices,
+            modality_keys=self.language_keys,
+        )
+
+        modality_configs = {
+            "video": video_modality,
+            "state": state_modality,
+            "action": action_modality,
+            "language": language_modality,
+        }
+
+        return modality_configs
+
+    def transform(self) -> ModalityTransform:
+        transforms = [
+            # video transforms
+            VideoToTensor(apply_to=self.video_keys),
+            VideoPerspective(apply_to=["video.camera_side"], distortion=0.05, p=0.5),
+            VideoCrop(apply_to=self.video_keys, scale=0.95),
+            VideoResize(apply_to=self.video_keys, height=224, width=224, interpolation="linear"),
+            VideoColorJitter(
+                apply_to=self.video_keys,
+                brightness=0.8,
+                contrast=0.9,
+                saturation=0.9,
+                hue=0.2,
+            ),
+            VideoToNumpy(apply_to=self.video_keys),
+            # state transforms
+            StateActionToTensor(apply_to=self.state_keys),
+            StateActionTransform(
+                apply_to=self.state_keys,
+                normalization_modes={key: "q99" for key in self.state_keys},
+            ),
+            # action transforms
+            StateActionToTensor(apply_to=self.action_keys),
+            StateActionTransform(
+                apply_to=self.action_keys,
+                normalization_modes={key: "q99" for key in self.action_keys},
+            ),
+            # concat transforms
+            ConcatTransform(
+                video_concat_order=self.video_keys,
+                state_concat_order=self.state_keys,
+                action_concat_order=self.action_keys,
+            ),
+            # model-specific transform
+            GR00TTransform(
+                state_horizon=len(self.observation_indices),
+                action_horizon=len(self.action_indices),
+                max_state_dim=64,
+                max_action_dim=self.action_dim,
+                
+            ),
+        ]
+        return ComposedModalityTransform(transforms=transforms)
+###########################################################################################
+
+
+class allex_theone_bimanual_46_long_egostereo_config(BaseDataConfig):
+    video_keys = ["video.camera_ego_left", "video.camera_ego_right"]
+    state_keys = [
+        "state.right_arm_joints",
+        "state.left_arm_joints",
+        "state.right_hand_joints",
+        "state.left_hand_joints",
+        "state.neck_joints",
+    ]
+    action_keys = [
+        "action.right_arm_joints",
+        "action.left_arm_joints",
+        "action.right_finger_joints",
+        "action.left_finger_joints",
+        "action.neck_joints",
+    ]
+    language_keys = ["annotation.human.task_description"]
+    observation_indices = [0]
+    action_indices = list(range(64))
+    action_dim = 46
+
+    def modality_config(self) -> dict[str, ModalityConfig]:
+        video_modality = ModalityConfig(
+            delta_indices=self.observation_indices,
+            modality_keys=self.video_keys,
+        )
+
+        state_modality = ModalityConfig(
+            delta_indices=self.observation_indices,
+            modality_keys=self.state_keys,
+        )
+
+        action_modality = ModalityConfig(
+            delta_indices=self.action_indices,
+            modality_keys=self.action_keys,
+        )
+
+        language_modality = ModalityConfig(
+            delta_indices=self.observation_indices,
+            modality_keys=self.language_keys,
+        )
+
+        modality_configs = {
+            "video": video_modality,
+            "state": state_modality,
+            "action": action_modality,
+            "language": language_modality,
+        }
+
+        return modality_configs
+
+    def transform(self) -> ModalityTransform:
+        transforms = [
+            # video transforms
+            VideoToTensor(apply_to=self.video_keys),
+            VideoCrop(apply_to=self.video_keys, scale=0.95),
+            VideoResize(apply_to=self.video_keys, height=224, width=224, interpolation="linear"),
+            VideoColorJitter(
+                apply_to=self.video_keys,
+                brightness=0.8,
+                contrast=0.9,
+                saturation=0.9,
+                hue=0.2,
+            ),
+            VideoToNumpy(apply_to=self.video_keys),
+            # state transforms
+            StateActionToTensor(apply_to=self.state_keys),
+            StateActionTransform(
+                apply_to=self.state_keys,
+                normalization_modes={key: "q99" for key in self.state_keys},
+            ),
+            # action transforms
+            StateActionToTensor(apply_to=self.action_keys),
+            StateActionTransform(
+                apply_to=self.action_keys,
+                normalization_modes={key: "q99" for key in self.action_keys},
+            ),
+            # concat transforms
+            ConcatTransform(
+                video_concat_order=self.video_keys,
+                state_concat_order=self.state_keys,
+                action_concat_order=self.action_keys,
+            ),
+            # model-specific transform
+            GR00TTransform(
+                state_horizon=len(self.observation_indices),
+                action_horizon=len(self.action_indices),
+                max_state_dim=64,
+                max_action_dim=self.action_dim,
+                
+            ),
+        ]
+        return ComposedModalityTransform(transforms=transforms)
+###########################################################################################
+
+
+class allex_theone_bimanual_46_long_egostereo_side_config(BaseDataConfig):
+    video_keys = ["video.camera_ego_left", "video.camera_ego_right", "video.camera_side"]
+    state_keys = [
+        "state.right_arm_joints",
+        "state.left_arm_joints",
+        "state.right_hand_joints",
+        "state.left_hand_joints",
+        "state.neck_joints",
+    ]
+    action_keys = [
+        "action.right_arm_joints",
+        "action.left_arm_joints",
+        "action.right_finger_joints",
+        "action.left_finger_joints",
+        "action.neck_joints",
+    ]
+    language_keys = ["annotation.human.task_description"]
+    observation_indices = [0]
+    action_indices = list(range(64))
+    action_dim = 46
+
+    def modality_config(self) -> dict[str, ModalityConfig]:
+        video_modality = ModalityConfig(
+            delta_indices=self.observation_indices,
+            modality_keys=self.video_keys,
+        )
+
+        state_modality = ModalityConfig(
+            delta_indices=self.observation_indices,
+            modality_keys=self.state_keys,
+        )
+
+        action_modality = ModalityConfig(
+            delta_indices=self.action_indices,
+            modality_keys=self.action_keys,
+        )
+
+        language_modality = ModalityConfig(
+            delta_indices=self.observation_indices,
+            modality_keys=self.language_keys,
+        )
+
+        modality_configs = {
+            "video": video_modality,
+            "state": state_modality,
+            "action": action_modality,
+            "language": language_modality,
+        }
+
+        return modality_configs
+
+    def transform(self) -> ModalityTransform:
+        transforms = [
+            # video transforms
+            VideoToTensor(apply_to=self.video_keys),
+            VideoPerspective(apply_to=["video.camera_side"], distortion=0.05, p=0.5),
+            VideoCrop(apply_to=self.video_keys, scale=0.95),
+            VideoResize(apply_to=self.video_keys, height=224, width=224, interpolation="linear"),
+            VideoColorJitter(
+                apply_to=self.video_keys,
+                brightness=0.8,
+                contrast=0.9,
+                saturation=0.9,
+                hue=0.2,
+            ),
+            VideoToNumpy(apply_to=self.video_keys),
+            # state transforms
+            StateActionToTensor(apply_to=self.state_keys),
+            StateActionTransform(
+                apply_to=self.state_keys,
+                normalization_modes={key: "q99" for key in self.state_keys},
+            ),
+            # action transforms
+            StateActionToTensor(apply_to=self.action_keys),
+            StateActionTransform(
+                apply_to=self.action_keys,
+                normalization_modes={key: "q99" for key in self.action_keys},
+            ),
+            # concat transforms
+            ConcatTransform(
+                video_concat_order=self.video_keys,
+                state_concat_order=self.state_keys,
+                action_concat_order=self.action_keys,
+            ),
+            # model-specific transform
+            GR00TTransform(
+                state_horizon=len(self.observation_indices),
+                action_horizon=len(self.action_indices),
+                max_state_dim=64,
+                max_action_dim=self.action_dim,
+                
+            ),
+        ]
+        return ComposedModalityTransform(transforms=transforms)
+###########################################################################################
+
+
 ###########################################################################################
 
 class allex_theone_bimanual_neck_joint_long_side_aug_config(BaseDataConfig):
@@ -3717,100 +4201,6 @@ class pos_only_dual_arm_multiview_config(BaseDataConfig):
 ###########################################################################################
 
 ###########################################################################################
-class allex_theone_bimanual_handshake_test_config(BaseDataConfig):
-    video_keys = ["video.camera_agentview", "video.camera_ext"]
-    state_keys = [
-        "state.right_arm_joints",
-        "state.left_arm_joints",
-        "state.right_hand_joints",
-        "state.left_hand_joints",
-    ]
-    action_keys = [
-        "action.right_arm_joints",
-        "action.left_arm_joints",
-        "action.right_finger_joints",
-        "action.left_finger_joints",
-    ]
-    language_keys = ["annotation.human.task_description"]
-    observation_indices = [0]
-    action_indices = list(range(64))
-    action_dim = 44
-
-    def modality_config(self) -> dict[str, ModalityConfig]:
-        video_modality = ModalityConfig(
-            delta_indices=self.observation_indices,
-            modality_keys=self.video_keys,
-        )
-
-        state_modality = ModalityConfig(
-            delta_indices=self.observation_indices,
-            modality_keys=self.state_keys,
-        )
-
-        action_modality = ModalityConfig(
-            delta_indices=self.action_indices,
-            modality_keys=self.action_keys,
-        )
-
-        language_modality = ModalityConfig(
-            delta_indices=self.observation_indices,
-            modality_keys=self.language_keys,
-        )
-
-        modality_configs = {
-            "video": video_modality,
-            "state": state_modality,
-            "action": action_modality,
-            "language": language_modality,
-        }
-
-        return modality_configs
-
-    def transform(self) -> ModalityTransform:
-        transforms = [
-            # video transforms
-            VideoToTensor(apply_to=self.video_keys),
-            VideoCrop(apply_to=self.video_keys, scale=0.95),
-            VideoResize(apply_to=self.video_keys, height=224, width=224, interpolation="linear"),
-            VideoColorJitter(
-                apply_to=self.video_keys,
-                brightness=0.3,
-                contrast=0.4,
-                saturation=0.5,
-                hue=0.08,
-            ),
-            VideoToNumpy(apply_to=self.video_keys),
-            # state transforms
-            StateActionToTensor(apply_to=self.state_keys),
-            StateActionTransform(
-                apply_to=self.state_keys,
-                normalization_modes={key: "q99" for key in self.state_keys},
-            ),
-            # action transforms
-            StateActionToTensor(apply_to=self.action_keys),
-            StateActionTransform(
-                apply_to=self.action_keys,
-                normalization_modes={key: "q99" for key in self.action_keys},
-            ),
-            # concat transforms
-            ConcatTransform(
-                video_concat_order=self.video_keys,
-                state_concat_order=self.state_keys,
-                action_concat_order=self.action_keys,
-            ),
-            # model-specific transform
-            GR00TTransform(
-                state_horizon=len(self.observation_indices),
-                action_horizon=len(self.action_indices),
-                max_state_dim=64,
-                max_action_dim=self.action_dim,
-                
-            ),
-        ]
-        return ComposedModalityTransform(transforms=transforms)
-###########################################################################################
-
-###########################################################################################
 
 DATA_CONFIG_MAP = {
     "fourier_gr1_arms_waist": FourierGr1ArmsWaistDataConfig(),
@@ -3862,5 +4252,11 @@ DATA_CONFIG_MAP = {
     "allex_theone_bimanual_neck_ac_joint_long_full_perspective_q99": allex_theone_bimanual_neck_ac_joint_long_full_perspective_q99_config(),
 
     "allex_theone_bimanual_neck_joint_long_side_aug": allex_theone_bimanual_neck_joint_long_side_aug_config(),
+
+    "allex_theone_bimanual_46_long_ego_side": allex_theone_bimanual_46_long_ego_side_config(),
+    "allex_theone_bimanual_46_long_egostereo_side": allex_theone_bimanual_46_long_egostereo_side_config(), 
+    "allex_theone_bimanual_46_long_egostereo": allex_theone_bimanual_46_long_egostereo_config(), 
+
+    "allex_theone_bimanual_46_short_ego_side": allex_theone_bimanual_46_short_ego_side_config(),
 
 }
