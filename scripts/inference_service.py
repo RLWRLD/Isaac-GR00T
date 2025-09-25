@@ -92,55 +92,8 @@ class ArgsConfig:
     http_server: bool = False
     """Whether to run it as HTTP server. Default is ZMQ server."""
 
-    mock_rtc: bool = False
-    """Whether to use a mock rtc. Default is False."""
-
-
-#####################################################################################
-
-
-def _example_zmq_client_call(obs: dict, config: dict, host: str, port: int, api_token: str):
-    """
-    Example ZMQ client call to the server.
-    """
-    # Original ZMQ client mode
-    # Create a policy wrapper
-    policy_client = RobotInferenceClient(host=host, port=port, api_token=api_token)
-
-    print("Available modality config available:")
-    modality_configs = policy_client.get_modality_config()
-    print(modality_configs.keys())
-
-    time_start = time.time()
-    action = policy_client.get_action(obs, config)
-    print(f"Total time taken to get action from server: {time.time() - time_start} seconds")
-    return action
-
-
-def _example_http_client_call(obs: dict, config: dict, host: str, port: int, api_token: str):
-    """
-    Example HTTP client call to the server.
-    """
-    import json_numpy
-
-    json_numpy.patch()
-    import requests
-
-    # Send request to HTTP server
-    print("Testing HTTP server...")
-
-    time_start = time.time()
-    response = requests.post(
-        f"http://{host}:{port}/act", json={"observation": obs, "config": config}
-    )
-    print(f"Total time taken to get action from HTTP server: {time.time() - time_start} seconds")
-
-    if response.status_code == 200:
-        action = response.json()
-        return action
-    else:
-        print(f"Error: {response.status_code} - {response.text}")
-        return {}
+    encode_video: bool = False
+    """With Zmq, Whether to encode the video to bytes to reduce image transfer bandwidth."""
 
 
 def main(args: ArgsConfig):
@@ -170,7 +123,7 @@ def main(args: ArgsConfig):
 
         # Start the server
         if args.http_server:
-            from gr00t.eval.http_server import HTTPInferenceServer  # noqa: F401
+            from gr00t.eval.http_service import HTTPInferenceServer  # noqa: F401
 
             server = HTTPInferenceServer(
                 policy, port=args.port, host=args.host, api_token=args.api_token
@@ -208,26 +161,31 @@ def main(args: ArgsConfig):
             "annotation.human.action.task_description": ["do your thing!"],
         }
 
-        config = None
-        if args.mock_rtc:
-            config = {
-                "denoising_steps": 4,
-                "rtc_overlap_steps": 4,
-                "rtc_frozen_steps": 2,
-            }
-            _obs = {
-                "action.left_arm": np.random.rand(16, 7),
-                "action.right_arm": np.random.rand(16, 7),
-                "action.left_hand": np.random.rand(16, 6),
-                "action.right_hand": np.random.rand(16, 6),
-                "action.waist": np.random.rand(16, 3),
-            }
-            obs = {**obs, **_obs}
-
         if args.http_server:
-            action = _example_http_client_call(obs, config, args.host, args.port, args.api_token)
+            from gr00t.eval.http_service import HttpClientPolicy  # noqa: F401
+
+            policy_client = HttpClientPolicy(host=args.host, port=args.port)
         else:
-            action = _example_zmq_client_call(obs, config, args.host, args.port, args.api_token)
+            # Original ZMQ client mode
+            # Create a policy wrapper
+            policy_client = RobotInferenceClient(
+                host=args.host,
+                port=args.port,
+                api_token=args.api_token,
+                encode_video=args.encode_video,
+            )
+
+            print("Available modality config available:")
+            modality_configs = policy_client.get_modality_config()
+            print(modality_configs.keys())
+
+            # action = _example_zmq_client_call(
+            #     obs, args.host, args.port, args.api_token, args.encode_video
+            # )
+
+        time_start = time.time()
+        action = policy_client.get_action(obs)
+        print(f"Total time taken to get action from server: {time.time() - time_start} seconds")
 
         for key, value in action.items():
             print(f"Action: {key}: {value.shape}")

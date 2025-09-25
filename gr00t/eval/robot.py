@@ -34,8 +34,12 @@ class RobotInferenceServer(BaseInferenceServer):
         host: str = "*",
         port: int = 5555,
         api_token: str = None,
-        encode_video: bool = True,
+        encode_video: bool = False,
     ):
+        """
+        api token is used to authenticate the client.
+        encode_video is used to encode the video to bytes to reduce image transfer bandwidth.
+        """
         super().__init__(host, port, api_token)
         self.encode_video = encode_video
         self.model = model
@@ -55,6 +59,10 @@ class RobotInferenceServer(BaseInferenceServer):
         return self.model.get_action(observations, config)
 
     def _decode_video(self, observation: dict) -> dict:
+        """
+        TODO(YL): currently this encoding logic only works for non-batched video
+        [history, H, W, C], Batched video [batch, history, H, W, C] is not supported yet.
+        """
         for key, value in observation.items():
             if "video" in key:
                 frames = []
@@ -79,8 +87,12 @@ class RobotInferenceClient(BaseInferenceClient, BasePolicy):
         host: str = "localhost",
         port: int = 5555,
         api_token: str = None,
-        encode_video: bool = True,
+        encode_video: bool = False,
     ):
+        """
+        api token is used to authenticate the client.
+        encode_video is used to encode the video to bytes to reduce image transfer bandwidth.
+        """
         super().__init__(host=host, port=port, api_token=api_token)
         self.encode_video = encode_video
 
@@ -95,6 +107,10 @@ class RobotInferenceClient(BaseInferenceClient, BasePolicy):
         return self.call_endpoint("get_modality_config", requires_input=False)
 
     def _encode_video(self, observation: dict) -> dict:
+        """
+        TODO(YL): currently this encoding logic only works for non-batched video
+        [history, H, W, C], Batched video [batch, history, H, W, C] is not supported yet.
+        """
         for key, value in observation.items():
             if "video" in key:
                 frames = []

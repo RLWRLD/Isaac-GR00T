@@ -157,6 +157,9 @@ def main(args: ArgsConfig):
         "inference_latency_steps must be less than action_horizon - execution_horizon, "
         "for example, if action horizon of 16 and execution of 10, "
         "the inference latency steps cannot be larger than 6 during open-loop plotting"
+        f"inference_latency_steps: {args.inference_latency_steps}, "
+        f"action_horizon: {action_horizon}, "
+        f"execution_horizon: {args.execution_horizon}"
     )
 
     print("Current modality config: \n", modality)

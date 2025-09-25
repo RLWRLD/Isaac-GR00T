@@ -1,43 +1,29 @@
-"""
-This is an example of how to use the HttpClientPolicy to get the action from the robot.
-
-pip install requests json-numpy
-"""
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 import time
 from collections import deque
-from typing import Any
+from typing import Any, Dict
 
 import numpy as np
 
-try:
-    import json_numpy
-    import numpy as np
-    import requests
-
-    json_numpy.patch()
-except ImportError:
-    print("json_numpy or requests not found")
-    pass
+from gr00t.data.dataset import ModalityConfig
+from gr00t.model.policy import BasePolicy
 
 
-class HttpClientPolicy:
-    def __init__(self, host: str, port: int):
-        self.host = host
-        self.port = port
-
-    def get_action(
-        self, observation: dict[str, Any], config: dict[str, Any] = None
-    ) -> dict[str, Any]:
-        print(f" -> GET ACTION CONFIG: {config}")
-        response = requests.post(
-            f"http://{self.host}:{self.port}/act",
-            json={"observation": observation, "config": config},
-        )
-        return response.json()
-
-
-class RTCPolicyWrapper:
+class RTCPolicyWrapper(BasePolicy):
     """
     A real-time chunking (RTC) policy wrapper for streaming robot control.
 
@@ -56,7 +42,7 @@ class RTCPolicyWrapper:
 
     def __init__(
         self,
-        policy: HttpClientPolicy,
+        policy: BasePolicy,
         control_freq: int,
         denoising_steps: int = 8,
         max_rtc_overlap_factor: float = 0.75,
@@ -139,40 +125,5 @@ class RTCPolicyWrapper:
             "rtc_frozen_steps": frozen_steps,
         }
 
-
-if __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--host", type=str, default="localhost")
-    parser.add_argument("--port", type=int, default=5555)
-    parser.add_argument("--control_freq", type=int, default=20)
-    parser.add_argument("--denoising_steps", type=int, default=4)
-    parser.add_argument("--max_rtc_overlap_factor", type=float, default=0.75)
-    args = parser.parse_args()
-
-    policy = HttpClientPolicy(args.host, args.port)
-    policy = RTCPolicyWrapper(
-        policy, args.control_freq, args.denoising_steps, args.max_rtc_overlap_factor
-    )
-
-    for i in range(20):
-        t = time.time()
-        obs = {
-            "video.test": np.zeros((1, 480, 640, 3), dtype=np.uint8),
-            "video.ego_view": np.zeros((1, 256, 256, 3), dtype=np.uint8),
-            "state.left_arm": np.random.rand(1, 7),
-            "state.right_arm": np.random.rand(1, 7),
-            "state.left_hand": np.random.rand(1, 6),
-            "state.right_hand": np.random.rand(1, 6),
-            "state.waist": np.random.rand(1, 3),
-            "annotation.human.action.task_description": ["do your thing!"],
-        }
-        action = policy.get_action(obs)
-
-        # NOTE(youliang): you will execute your action here in the real robot
-        # env.step(action)
-
-        # lazy sleep to simulate the inference frequency
-        time.sleep(0.5)
-        print(f"{i}:  used time {time.time() - t}")
+    def get_modality_config(self) -> Dict[str, ModalityConfig]:
+        return self.policy.get_modality_config()

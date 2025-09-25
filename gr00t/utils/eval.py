@@ -118,13 +118,6 @@ def calc_mse_for_single_trajectory(
                     elif inference_latency_steps <= j < action_horizon - intermediate_overlap_steps:
                         pred_action_across_time.append(concat_pred_action)
 
-                # TODO(YL): check if this is correct
-                if rtc_enabled:
-                    concat_gt_action = np.concatenate(
-                        [data_point[f"action.{key}"][j] for key in modality_keys], axis=0
-                    )
-                    gt_action_across_time.append(concat_gt_action)
-
     # plot the joints
     state_joints_across_time = np.array(state_joints_across_time)[:steps]
     gt_action_across_time = np.array(gt_action_across_time)[:steps]
