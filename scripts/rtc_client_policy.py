@@ -13,11 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-This is an example of how to use the RTC policy wrapper to get the action from the robot.
-
-pip install requests json-numpy
-"""
 
 import time
 
@@ -38,6 +33,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.http_server:
+        """This requires: pip install requests json-numpy"""
         from gr00t.eval.http_service import HttpClientPolicy  # noqa: F401
 
         policy = HttpClientPolicy(args.host, args.port)
@@ -53,26 +49,14 @@ if __name__ == "__main__":
 
     for i in range(20):
         t = time.time()
-        # obs = {
-        #     "video.test": np.zeros((1, 480, 640, 3), dtype=np.uint8),
-        #     "video.ego_view": np.zeros((1, 256, 256, 3), dtype=np.uint8),
-        #     "state.left_arm": np.random.rand(1, 7),
-        #     "state.right_arm": np.random.rand(1, 7),
-        #     "state.left_hand": np.random.rand(1, 6),
-        #     "state.right_hand": np.random.rand(1, 6),
-        #     "state.waist": np.random.rand(1, 3),
-        #     "annotation.human.action.task_description": ["do your thing!"],
-        # }
-        # this is the g1 observation
         obs = {
-            "video.ego_view": np.zeros((1, 480, 640, 3), dtype=np.uint8),
+            "video.test": np.zeros((1, 480, 640, 3), dtype=np.uint8),
+            "video.ego_view": np.zeros((1, 256, 256, 3), dtype=np.uint8),
             "state.left_arm": np.random.rand(1, 7),
             "state.right_arm": np.random.rand(1, 7),
-            "state.left_hand": np.random.rand(1, 7),
-            "state.right_hand": np.random.rand(1, 7),
+            "state.left_hand": np.random.rand(1, 6),
+            "state.right_hand": np.random.rand(1, 6),
             "state.waist": np.random.rand(1, 3),
-            "state.left_leg": np.random.rand(1, 6),
-            "state.right_leg": np.random.rand(1, 6),
             "annotation.human.action.task_description": ["do your thing!"],
         }
         action = policy.get_action(obs)

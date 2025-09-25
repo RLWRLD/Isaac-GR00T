@@ -93,12 +93,6 @@ class SimulationInferenceClient(BasePolicy):
             observations["video.ego_view"] = observations.pop(
                 "video.ego_view_bg_crop_pad_res256_freq20"
             )
-        # print the shape of the observations
-        for k, v in observations.items():
-            if isinstance(v, np.ndarray):
-                print(k, v.shape)
-            else:
-                print(k, type(v))
         return self.client.get_action(observations)
 
     def get_modality_config(self) -> Dict[str, ModalityConfig]:
