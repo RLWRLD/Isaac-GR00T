@@ -366,17 +366,6 @@ class FlowmatchingActionHead(nn.Module):
         loss = F.mse_loss(pred_actions, velocity, reduction="none") * action_mask
         loss = loss.sum() / action_mask.sum()
 
-        # NOTE(YL): youliang's experiments
-        # base = F.mse_loss(pred_actions, velocity, reduction="none") * action_mask
-        # base = base.sum() / action_mask.sum()
-
-        # # 2) finite‐difference acceleration
-        # vel_diff = pred_actions[:, 1:] - pred_actions[:, :-1]          # (B, T-1, D)
-        # acc_loss = vel_diff.pow(2).mean()                              # scalar
-
-        # # 3) combine
-        # λ_acc = 0.01
-        # loss = base + λ_acc * acc_loss
         output_dict = {
             "loss": loss,
         }

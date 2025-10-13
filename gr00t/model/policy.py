@@ -179,6 +179,11 @@ class Gr00tPolicy(BasePolicy):
         if not is_batch:
             obs_copy = unsqueeze_dict_values(obs_copy)
 
+        # Convert to numpy arrays
+        for k, v in obs_copy.items():
+            if not isinstance(v, np.ndarray):
+                obs_copy[k] = np.array(v)
+
         # We will set the inference config for the model, which includes the denoising steps, rtc steps, and rtc freeze steps
         if config is not None:
             self.model.action_head.num_inference_timesteps = config.get(
@@ -196,11 +201,6 @@ class Gr00tPolicy(BasePolicy):
                     self.model.action_head.config.inference_rtc_overlap_steps
                     >= self.model.action_head.config.inference_rtc_frozen_steps
                 ), "rtc_overlap_steps must be greater than or equal to rtc_frozen_steps"
-
-        # Convert to numpy arrays
-        for k, v in obs_copy.items():
-            if not isinstance(v, np.ndarray):
-                obs_copy[k] = np.array(v)
 
         normalized_input = self.apply_transforms(obs_copy)
         normalized_action = self._get_action_from_normalized_input(normalized_input)
@@ -368,16 +368,10 @@ def unsqueeze_dict_values(data: Dict[str, Any]) -> Dict[str, Any]:
     unsqueezed_data = {}
     for k, v in data.items():
         if isinstance(v, np.ndarray):
-            # ensure all value of the dic (value,) is converted to (value, 1)
-            if v.shape == (v.shape[0],):
-                v = v.reshape(v.shape[0], 1)
             unsqueezed_data[k] = np.expand_dims(v, axis=0)
         elif isinstance(v, list):
             unsqueezed_data[k] = np.expand_dims(np.array(v), axis=0)  # Fixed
         elif isinstance(v, torch.Tensor):
-            # ensure all value of the dic (value,) is converted to (value, 1)
-            if v.shape == (v.shape[0],):
-                v = v.reshape(v.shape[0], 1)
             unsqueezed_data[k] = v.unsqueeze(0)
         else:
             unsqueezed_data[k] = v
