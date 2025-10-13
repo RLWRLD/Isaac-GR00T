@@ -23,7 +23,7 @@ import tyro
 from gr00t.data.dataset import LeRobotSingleDataset
 from gr00t.data.embodiment_tags import EMBODIMENT_TAG_MAPPING
 from gr00t.eval.robot import RobotInferenceClient
-from gr00t.experiment.data_config import DATA_CONFIG_MAP
+from gr00t.experiment.data_config import load_data_config
 from gr00t.model.policy import BasePolicy, Gr00tPolicy
 from gr00t.utils.eval import calc_mse_for_single_trajectory
 
@@ -55,8 +55,12 @@ class ArgsConfig:
     modality_keys: List[str] = field(default_factory=lambda: ["right_arm", "left_arm"])
     """Modality keys to evaluate."""
 
-    data_config: Literal[tuple(DATA_CONFIG_MAP.keys())] = "fourier_gr1_arms_only"
-    """Data config to use."""
+    data_config: str = "fourier_gr1_arms_only"
+    """
+    Data config to use, e.g. so100, fourier_gr1_arms_only, unitree_g1, etc.
+    Or a path to a custom data config file. e.g. "module:ClassName" format.
+    See gr00t/experiment/data_config.py for more details.
+    """
 
     steps: int = 150
     """Number of steps to evaluate."""
@@ -70,7 +74,7 @@ class ArgsConfig:
     execution_horizon: Optional[int] = None
     """Execution horizon to evaluate. If None, will use the data config's action horizon."""
 
-    video_backend: Literal["decord", "torchvision_av"] = "decord"
+    video_backend: Literal["decord", "torchvision_av", "torchcodec"] = "torchcodec"
     """Video backend to use for various codec options. h264: decord or av: torchvision_av"""
 
     dataset_path: str = "demo_data/robot_sim.PickNPlace/"
@@ -97,7 +101,6 @@ class ArgsConfig:
     plot_state: bool = False
     """Whether to show the state on the plot."""
 
-
 class WrapPolicy(BasePolicy):
     def __init__(self, policy: BasePolicy):
         self.policy = policy
@@ -116,7 +119,7 @@ class WrapPolicy(BasePolicy):
 
 
 def main(args: ArgsConfig):
-    data_config = DATA_CONFIG_MAP[args.data_config]
+    data_config = load_data_config(args.data_config)
 
     # Set action_horizon from data config if not provided
     if args.execution_horizon is None:
