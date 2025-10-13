@@ -1,5 +1,6 @@
 # C extensions
 *.so
+*.mp4
 
 # Distribution / packaging
 .Python
@@ -123,3 +124,5 @@ playground/
 demo_data/gr00t-gr1-apple-to-shelf/
 tmp/
 output/
+videos
+out
