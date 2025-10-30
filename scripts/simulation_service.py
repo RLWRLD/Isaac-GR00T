@@ -46,7 +46,7 @@ if __name__ == "__main__":
         help="Name of the environment to run.",
         default="<ENV_NAME>",  # change this to your environment name
     )
-    parser.add_argument("--port", type=int, help="Port number for the server.", default=5555)
+    parser.add_argument("--port", type=int, help="Port number for the server.", default=7777)
     parser.add_argument(
         "--host", type=str, help="Host address for the server.", default="localhost"
     )

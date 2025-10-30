@@ -71,7 +71,7 @@ class ArgsConfig:
     See gr00t/experiment/data_config.py for more details.
     """
 
-    port: int = 5555
+    port: int = 7777
     """The port number for the server."""
 
     host: str = "0.0.0.0"

@@ -25,7 +25,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--host", type=str, default="localhost")
-    parser.add_argument("--port", type=int, default=5555)
+    parser.add_argument("--port", type=int, default=7777)
     parser.add_argument("--control_freq", type=int, default=20)
     parser.add_argument("--denoising_steps", type=int, default=4)
     parser.add_argument("--max_rtc_overlap_factor", type=float, default=0.75)
