@@ -32,6 +32,7 @@ from gr00t.model.gr00t_n1 import GR00T_N1_5
 from gr00t.model.transforms import EMBODIMENT_TAG_MAPPING
 from gr00t.utils.peft import get_lora_model
 
+torch.multiprocessing.set_sharing_strategy('file_system')
 
 @dataclass
 class ArgsConfig:
@@ -134,6 +135,9 @@ class ArgsConfig:
     balance_trajectory_weights: bool = True
     """Used in LeRobotMixtureDataset. If True, sample trajectories within a dataset weighted by their length; otherwise, equal weighting."""
 
+    # Jaehyun HACK : for initializing flowmatching action head from scratch.
+    # We train from scratch to remove the effect from gr00t's pretrained knowledge regarding gr1 embodiment.
+    action_head_from_scratch: bool = False
 
 def _copy_partial_action_expert_weights(old_dict, new_dict, old_dim, new_dim):
     """
@@ -206,8 +210,8 @@ def main(config: ArgsConfig):
     data_config_cls = load_data_config(config.data_config)
     modality_configs = data_config_cls.modality_config()
     transforms = data_config_cls.transform()
-    action_dim = data_config_cls.action_dim
-    config.action_dim = action_dim
+    # action_dim = data_config_cls.action_dim
+    # config.action_dim = action_dim
     
     # 1.2 data loader: we will use either single dataset or mixture dataset
     if len(config.dataset_path) == 1:
@@ -268,7 +272,7 @@ def main(config: ArgsConfig):
     # Load model
     model = GR00T_N1_5.from_pretrained(
         pretrained_model_name_or_path=config.base_model_path,
-        action_dim=action_dim,
+        # action_dim=action_dim,
         tune_llm=config.tune_llm,  # backbone's LLM
         tune_visual=config.tune_visual,  # backbone's vision tower
         tune_projector=config.tune_projector,  # action head's projector
@@ -352,6 +356,25 @@ def main(config: ArgsConfig):
             tune_projector=config.tune_projector, tune_diffusion_model=config.tune_diffusion_model
         )
 
+    # Jaehyun HACK : for initializing flowmatching action head from scratch.
+    # We train from scratch to remove the effect from gr00t's pretrained knowledge regarding gr1 embodiment.
+    if config.action_head_from_scratch:
+        # Import the FlowmatchingActionHead class
+        from gr00t.model.action_head.flow_matching_action_head import (
+            FlowmatchingActionHead,
+        )
+
+        print(
+            "\033[93mJaehyun: Initializing flowmatching action head from scratch\033[0m"
+        )
+        import copy
+        new_action_head_config = copy.deepcopy(model.action_head.config)
+        new_action_head_config.action_horizon = data_action_horizon
+        new_action_head_config.action_dim = data_max_action_dim
+
+        new_action_head = FlowmatchingActionHead(new_action_head_config)
+        model.action_head = new_action_head
+        
     # Set the model's compute_dtype to bfloat16
     model.compute_dtype = "bfloat16"
     model.config.compute_dtype = "bfloat16"
@@ -479,6 +502,24 @@ if __name__ == "__main__":
                 str(script_path),
                 *raw_args_list,
             ]
+
+            # master_addr = os.environ.get("MASTER_ADDR", "127.0.0.1")
+            # master_port = os.environ.get("MASTER_PORT", "29400")
+            # print(f"MASTER_ADDR: {master_addr}")
+            # print(f"MASTER_PORT: {master_port}")
+
+            # cmd = [
+            #     "torchrun",
+            #     # "--standalone",
+            #     f"--nproc_per_node={config.num_gpus}",
+            #     "--nnodes=2",  # default to 1 node for now
+            #     "--rdzv_backend=c10d", \
+            #     f"--rdzv_endpoint={master_addr}:{master_port}", \
+            #     "--rdzv_id=gr00t_multinode_test", \
+            #     "--max_restarts=3", \
+            #     str(script_path),
+            #     *raw_args_list,
+            # ]
 
             print("Running torchrun command: ", cmd)
             env = os.environ.copy()
