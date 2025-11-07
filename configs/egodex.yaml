@@ -1,0 +1,6 @@
+train:
+  datasets:
+    - path: datasets/egodex_lerobot/v21_basic_pick_place_fixed
+      embodiment_tag: new_embodiment
+      data_config: egodex_naive
+      weight: 1.0

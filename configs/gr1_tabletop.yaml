@@ -1,0 +1,121 @@
+train:
+  datasets:
+    - path: "datasets/gr1_arms_waist_300/gr1_arms_waist.WineToCabinet"
+      embodiment_tag: "new_embodiment"
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+
+    - path: "datasets/gr1_arms_waist_300/gr1_arms_waist.TrayToTieredShelf"
+      embodiment_tag: "new_embodiment"
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+
+    - path: "datasets/gr1_arms_waist_300/gr1_arms_waist.TrayToTieredBasket"
+      embodiment_tag: "new_embodiment"
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+
+    - path: "datasets/gr1_arms_waist_300/gr1_arms_waist.TrayToPot"
+      embodiment_tag: "new_embodiment"
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+
+    - path: "datasets/gr1_arms_waist_300/gr1_arms_waist.TrayToPlate"
+      embodiment_tag: "new_embodiment"
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+
+    - path: "datasets/gr1_arms_waist_300/gr1_arms_waist.TrayToCardboardBox"
+      embodiment_tag: "new_embodiment"
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+
+    - path: "datasets/gr1_arms_waist_300/gr1_arms_waist.PotatoToMicrowave"
+      embodiment_tag: "new_embodiment"
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+
+    - path: "datasets/gr1_arms_waist_300/gr1_arms_waist.PlateToPlate"
+      embodiment_tag: "new_embodiment"
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+
+    - path: "datasets/gr1_arms_waist_300/gr1_arms_waist.PlateToPan"
+      embodiment_tag: "new_embodiment"
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+
+    - path: "datasets/gr1_arms_waist_300/gr1_arms_waist.PlateToCardboardBox"
+      embodiment_tag: "new_embodiment"
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+
+    - path: "datasets/gr1_arms_waist_300/gr1_arms_waist.PlateToBowl"
+      embodiment_tag: "new_embodiment"
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+
+    - path: "datasets/gr1_arms_waist_300/gr1_arms_waist.PlacematToTieredShelf"
+      embodiment_tag: "new_embodiment"
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+
+    - path: "datasets/gr1_arms_waist_300/gr1_arms_waist.PlacematToPlate"
+      embodiment_tag: "new_embodiment"
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+
+    - path: "datasets/gr1_arms_waist_300/gr1_arms_waist.PlacematToBowl"
+      embodiment_tag: "new_embodiment"
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+
+    - path: "datasets/gr1_arms_waist_300/gr1_arms_waist.PlacematToBasket"
+      embodiment_tag: "new_embodiment"
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+
+    - path: "datasets/gr1_arms_waist_300/gr1_arms_waist.PlaceMilkToMicrowave"
+      embodiment_tag: "new_embodiment"
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+
+    - path: "datasets/gr1_arms_waist_300/gr1_arms_waist.PlaceBottleToCabinet"
+      embodiment_tag: "new_embodiment"
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+
+    - path: "datasets/gr1_arms_waist_300/gr1_arms_waist.CuttingboardToTieredBasket"
+      embodiment_tag: "new_embodiment"
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+
+    - path: "datasets/gr1_arms_waist_300/gr1_arms_waist.CuttingboardToPot"
+      embodiment_tag: "new_embodiment"
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+
+    - path: "datasets/gr1_arms_waist_300/gr1_arms_waist.CuttingboardToPan"
+      embodiment_tag: "new_embodiment"
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+
+    - path: "datasets/gr1_arms_waist_300/gr1_arms_waist.CuttingboardToCardboardBox"
+      embodiment_tag: "new_embodiment"
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+
+    - path: "datasets/gr1_arms_waist_300/gr1_arms_waist.CuttingboardToBasket"
+      embodiment_tag: "new_embodiment"
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+
+    - path: "datasets/gr1_arms_waist_300/gr1_arms_waist.CupToDrawer"
+      embodiment_tag: "new_embodiment"
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+
+    - path: "datasets/gr1_arms_waist_300/gr1_arms_waist.CanToDrawer"
+      embodiment_tag: "new_embodiment"
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0

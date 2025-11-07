@@ -1179,6 +1179,11 @@ class LeRobotMixtureDataset(Dataset):
         Returns:
             A dict of overall statistics per modality.
         """
+        # Validate lengths
+        assert len(per_task_stats) == len(
+            dataset_sampling_weights
+        ), "Length of per_task_stats must match dataset_sampling_weights"
+
         # Normalize the sample weights to sum to 1
         dataset_sampling_weights = np.array(dataset_sampling_weights)
         normalized_weights = dataset_sampling_weights / dataset_sampling_weights.sum()
@@ -1278,6 +1283,11 @@ class LeRobotMixtureDataset(Dataset):
         ), "All metadata must have the same embodiment tag"
         merged_metadata["embodiment_tag"] = metadatas[0].embodiment_tag
 
+        # Validate lengths
+        assert len(metadatas) == len(
+            dataset_sampling_weights
+        ), "Length of metadatas must match dataset_sampling_weights"
+
         # Merge the dataset statistics
         dataset_statistics = {}
         dataset_statistics["state"] = LeRobotMixtureDataset.compute_overall_statistics(
@@ -1319,16 +1329,21 @@ class LeRobotMixtureDataset(Dataset):
 
         self.tag = EmbodimentTag.NEW_EMBODIMENT.value
         self.merged_metadata: dict[str, DatasetMetadata] = {}
-        # Group metadata by tag
+        # Group metadata and weights by tag
         all_metadatas: dict[str, list[DatasetMetadata]] = {}
-        for dataset in self.datasets:
+        all_weights: dict[str, list[float]] = {}
+        for idx, dataset in enumerate(self.datasets):
             if dataset.tag not in all_metadatas:
                 all_metadatas[dataset.tag] = []
+                all_weights[dataset.tag] = []
             all_metadatas[dataset.tag].append(dataset.metadata)
+            # self.dataset_sampling_weights aligns with self.datasets
+            all_weights[dataset.tag].append(float(self.dataset_sampling_weights[idx]))
+
         for tag, metadatas in all_metadatas.items():
             self.merged_metadata[tag] = self.merge_metadata(
                 metadatas=metadatas,
-                dataset_sampling_weights=self.dataset_sampling_weights.tolist(),
+                dataset_sampling_weights=all_weights[tag],
                 percentile_mixing_method=metadata_config["percentile_mixing_method"],
             )
         for dataset in self.datasets:

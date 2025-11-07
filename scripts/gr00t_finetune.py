@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import List, Literal
 
 import torch
+import yaml
 import tyro
 from transformers import TrainingArguments
 
@@ -39,19 +40,16 @@ class ArgsConfig:
     """Configuration for GR00T model fine-tuning."""
 
     # Dataset parameters
-    dataset_path: List[str]
+    # dataset_path: List[str]
     """Path to the dataset directory or directories, we assume all datasets have the same data config"""
 
     output_dir: str = "/tmp/gr00t"
     """Directory to save model checkpoints."""
 
-    data_config: str = "fourier_gr1_arms_only"
+    data_config: str = "configs/base.yaml"
     """
-    Data configuration to use for training.
-    Options:
-    - Built-in configs: Use predefined config names like 'so100', 'fourier_gr1_arms_only', 'unitree_g1'.
-    - External configs: Use 'module:ClassName' format to load custom configs from external files. e.g. 'my_dir.my_configs:RobotConfig'
-    See gr00t/experiment/data_config.py for more details.
+    NOTE : jaehyun 
+    Use the config file instead of the data config name.
     """
 
     # Training parameters
@@ -121,7 +119,7 @@ class ArgsConfig:
     """Where to report training metrics (e.g., 'wandb', 'tensorboard', 'azure_ml')."""
 
     # Data loading parameters
-    embodiment_tag: Literal[tuple(EMBODIMENT_TAG_MAPPING.keys())] = "new_embodiment"
+    # embodiment_tag: Literal[tuple(EMBODIMENT_TAG_MAPPING.keys())] = "new_embodiment"
     """Embodiment tag to use for training. e.g. 'new_embodiment', 'gr1'"""
 
     video_backend: Literal["torchcodec", "decord", "torchvision_av"] = "torchcodec"
@@ -204,43 +202,46 @@ def _copy_partial_action_expert_weights(old_dict, new_dict, old_dim, new_dim):
 def main(config: ArgsConfig):
     """Main training function."""
     # ------------ step 1: load dataset ------------
-    embodiment_tag = EmbodimentTag(config.embodiment_tag)
 
-    # 1.1 modality configs and transforms
-    data_config_cls = load_data_config(config.data_config)
-    modality_configs = data_config_cls.modality_config()
-    transforms = data_config_cls.transform()
-    # action_dim = data_config_cls.action_dim
-    # config.action_dim = action_dim
-    
-    # 1.2 data loader: we will use either single dataset or mixture dataset
-    if len(config.dataset_path) == 1:
-        train_dataset = LeRobotSingleDataset(
-            dataset_path=config.dataset_path[0],
-            modality_configs=modality_configs,
-            transforms=transforms,
-            embodiment_tag=embodiment_tag,  # This will override the dataset's embodiment tag to "new_embodiment"
+    # read data config yaml
+    yaml_path = Path(__file__).resolve().parents[1] / config.data_config
+    assert yaml_path.exists(), f"Train YAML not found: {yaml_path}"
+    with open(yaml_path, "r") as f:
+        train_cfg = yaml.safe_load(f) or {}
+
+    ds_entries = (train_cfg.get("train") or {}).get("datasets") or []
+    assert len(ds_entries) > 0, "No datasets found in train.datasets"
+
+    dataset_paths = [str(e["path"]) for e in ds_entries]
+    data_configs = [str(e["data_config"]) for e in ds_entries]
+    dataset_sampling_weights = [float(e.get("weight", 1.0)) for e in ds_entries]
+    embodiment_tags = [str(e["embodiment_tag"]) for e in ds_entries]
+
+    data_config_cls = [load_data_config(config) for config in data_configs]
+    modality_configs = [config.modality_config() for config in data_config_cls]
+    transforms = [config.transform() for config in data_config_cls]
+
+    single_datasets = []
+    for dataset_idx, dataset_path in enumerate(dataset_paths):
+        assert os.path.exists(dataset_path), f"Dataset path {dataset_path} does not exist"
+        ## We use the same transforms, modality configs, and embodiment tag for all datasets here,
+        ## in reality, you can use dataset from different modalities and embodiment tags
+        dataset = LeRobotSingleDataset(
+            dataset_path=dataset_path,
+            modality_configs=modality_configs[dataset_idx],
+            transforms=transforms[dataset_idx],
+            embodiment_tag=embodiment_tags[dataset_idx],
             video_backend=config.video_backend,
         )
-    else:
-        single_datasets = []
-        for p in config.dataset_path:
-            assert os.path.exists(p), f"Dataset path {p} does not exist"
-            ## We use the same transforms, modality configs, and embodiment tag for all datasets here,
-            ## in reality, you can use dataset from different modalities and embodiment tags
-            dataset = LeRobotSingleDataset(
-                dataset_path=p,
-                modality_configs=modality_configs,
-                transforms=transforms,
-                embodiment_tag=embodiment_tag,
-                video_backend=config.video_backend,
-            )
-            single_datasets.append(dataset)
+        single_datasets.append(dataset)
 
+    if len(single_datasets) == 1:
+        train_dataset = single_datasets[0]
+    else:
         train_dataset = LeRobotMixtureDataset(
             data_mixture=[
-                (dataset, 1.0)  # we will use equal weights for all datasets
-                for dataset in single_datasets
+                (dataset, dataset_sampling_weights[dataset_idx])  # we will use equal weights for all datasets
+                for dataset_idx, dataset in enumerate(single_datasets)
             ],
             mode="train",
             balance_dataset_weights=config.balance_dataset_weights,
@@ -250,24 +251,38 @@ def main(config: ArgsConfig):
                 "percentile_mixing_method": "weighted_average",
             },
         )
-        print(f"Loaded {len(single_datasets)} datasets, with {config.dataset_path} ")
+    print(f"Loaded {len(single_datasets)} datasets.")
+
 
     # ------------ step 2: load model ------------
     # First, get the data config to determine action horizon
-    data_action_horizon = len(data_config_cls.action_indices)
+    data_action_horizon = len(data_config_cls[0].action_indices) # HACK : we assume all datasets have the same action horizon
 
     # Extract max_action_dim from GR00TTransform in the data config
-    data_max_action_dim = None
+    data_max_action_dim = -1
     # Assert that the last transform is a GR00TTransform and has max_action_dim
     assert (
-        hasattr(transforms, "transforms") and len(transforms.transforms) > 0
+        hasattr(transforms[0], "transforms") and len(transforms[0].transforms) > 0
     ), "No transforms found"
-    last_transform = transforms.transforms[-1]
+    # last_transform = transforms[0].transforms[-1]
     from gr00t.model.transforms import GR00TTransform
+    for trans in transforms:
+        last_transform = trans.transforms[-1]
+        assert isinstance(last_transform, GR00TTransform), "Last transform must be GR00TTransform"
+        assert hasattr(last_transform, "max_action_dim"), "GR00TTransform must have max_action_dim"
+        data_max_action_dim = max(data_max_action_dim, last_transform.max_action_dim)
 
-    assert isinstance(last_transform, GR00TTransform), "Last transform must be GR00TTransform"
-    assert hasattr(last_transform, "max_action_dim"), "GR00TTransform must have max_action_dim"
-    data_max_action_dim = last_transform.max_action_dim
+    # Unify: set all datasets' last GR00TTransform.max_action_dim to the global maximum to avoid collate errors
+    for trans in transforms:
+        last_transform = trans.transforms[-1]
+        if last_transform.max_action_dim != data_max_action_dim:
+            last_transform.max_action_dim = data_max_action_dim
+
+    # Validate: ensure all transforms now share the same max_action_dim
+    for trans in transforms:
+        assert (
+            trans.transforms[-1].max_action_dim == data_max_action_dim
+        ), f"Transform max_action_dim not unified: {trans.transforms[-1].max_action_dim} != {data_max_action_dim}"
 
     # Load model
     model = GR00T_N1_5.from_pretrained(
@@ -356,7 +371,7 @@ def main(config: ArgsConfig):
             tune_projector=config.tune_projector, tune_diffusion_model=config.tune_diffusion_model
         )
 
-    # Jaehyun HACK : for initializing flowmatching action head from scratch.
+    # Jaehyun NOTE : for initializing flowmatching action head from scratch.
     # We train from scratch to remove the effect from gr00t's pretrained knowledge regarding gr1 embodiment.
     if config.action_head_from_scratch:
         # Import the FlowmatchingActionHead class

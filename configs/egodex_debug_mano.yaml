@@ -1,0 +1,6 @@
+train:
+  datasets:
+    - path: datasets/egodex_lerobot_mano_debug
+      embodiment_tag: new_embodiment
+      data_config: egodex_mano
+      weight: 1.0
