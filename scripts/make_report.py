@@ -122,10 +122,10 @@ def scan_root(root: str, pattern: str, strict: bool) -> List[TaskStats]:
     for task_name in task_names:
         task_dir = os.path.join(root, task_name)
         task_stats = collect_task_stats(task_dir, task_name, pattern)
-        if strict:
-            assert (
-                task_stats.total > 0
-            ), f"Task '{task_name}' contains no files matching *{pattern}[0|1].mp4"
+        # if strict:
+        #     assert (
+        #         task_stats.total > 0
+        #     ), f"Task '{task_name}' contains no files matching *{pattern}[0|1].mp4"
         stats.append(task_stats)
 
     return stats

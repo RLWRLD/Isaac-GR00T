@@ -104,7 +104,15 @@ def get_frames_by_timestamps(
         decoder = torchcodec.decoders.VideoDecoder(
             video_path, device="cpu", dimension_order="NHWC", num_ffmpeg_threads=0
         )
-        return decoder.get_frames_played_at(seconds=timestamps).data.numpy()
+        # Clamp timestamps to [0, duration)
+        
+        #  NOTE jaehyun : remove this after testing
+        duration = float(decoder.metadata.duration_seconds)
+        eps = max(1e-6, duration * 1e-9)
+        ts = np.asarray(timestamps, dtype=float)
+        # Strict clamp to avoid boundary errors at exactly duration
+        ts = np.clip(ts, 0.0, max(0.0, duration - eps))
+        return decoder.get_frames_played_at(seconds=ts).data.numpy()
     elif video_backend == "opencv":
         # Open the video file
         cap = cv2.VideoCapture(video_path, **video_backend_kwargs)
