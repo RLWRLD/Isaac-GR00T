@@ -116,12 +116,25 @@ def collate(features: List[dict], eagle_processor) -> dict:
         else:
             # state, state_mask, action and action_mask.
             # Stack to form the batch dimension.
-            if isinstance(values[0], torch.Tensor):
-                # Already tensors, just stack
+            # Check all elements, not just the first one, to handle mixed types
+            all_tensors = all(isinstance(v, torch.Tensor) for v in values)
+            all_numpy = all(isinstance(v, np.ndarray) for v in values)
+            
+            if all_tensors:
+                # All are tensors, just stack
                 batch[key] = torch.stack(values)
-            else:
-                # Numpy arrays, convert to tensor then stack
+            elif all_numpy:
+                # All are numpy arrays, convert to tensor then stack
                 batch[key] = torch.from_numpy(np.stack(values))
+            else:
+                # Mixed types: convert all to numpy first, then to tensor
+                numpy_values = []
+                for v in values:
+                    if isinstance(v, torch.Tensor):
+                        numpy_values.append(v.detach().cpu().numpy())
+                    else:
+                        numpy_values.append(v)
+                batch[key] = torch.from_numpy(np.stack(numpy_values))
     return batch
 
 
