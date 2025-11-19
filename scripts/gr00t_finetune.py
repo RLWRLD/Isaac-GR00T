@@ -133,7 +133,7 @@ class ArgsConfig:
     balance_trajectory_weights: bool = True
     """Used in LeRobotMixtureDataset. If True, sample trajectories within a dataset weighted by their length; otherwise, equal weighting."""
 
-    # Jaehyun HACK : for initializing flowmatching action head from scratch.
+    # Jaehyun NOTE : for initializing flowmatching action head from scratch.
     # We train from scratch to remove the effect from gr00t's pretrained knowledge regarding gr1 embodiment.
     action_head_from_scratch: bool = False
 
@@ -420,7 +420,7 @@ def main(config: ArgsConfig):
     # 2.1 modify training args
     training_args = TrainingArguments(
         output_dir=config.output_dir,
-        run_name=None,
+        run_name=config.output_dir.split("/")[-1],
         remove_unused_columns=False,
         deepspeed="",
         gradient_checkpointing=False,
