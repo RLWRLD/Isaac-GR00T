@@ -1,6 +1,0 @@
-train:
-  datasets:
-    - path: datasets/egodex_all_tasks_debug/part1/add_remove_lid
-      embodiment_tag: new_embodiment
-      data_config: egodex_naive
-      weight: 1.0

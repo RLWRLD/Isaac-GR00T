@@ -1,0 +1,446 @@
+train:
+  datasets:
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/add_remove_lid
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/arrange_topple_dominoes
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/assemble_disassemble_furniture_bench_chair
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/assemble_disassemble_furniture_bench_desk
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/assemble_disassemble_furniture_bench_drawer
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/assemble_disassemble_furniture_bench_lamp
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/assemble_disassemble_furniture_bench_square_table
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/assemble_disassemble_furniture_bench_stool
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/assemble_disassemble_legos
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/assemble_disassemble_soft_legos
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/assemble_disassemble_structures
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/assemble_disassemble_tiles
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/assemble_jenga
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/basic_fold
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/basic_pick_place
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/boil_serve_egg
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/braid_unbraid
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/build_unstack_lego
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/charge_uncharge_airpods
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/charge_uncharge_device
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/clean_cups
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/clean_surface
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/clean_tableware
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/clip_unclip_papers
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/color
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/crumple_flatten_paper
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/deal_gather_cards
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/declutter_desk
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/dry_hands
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/fidget_magnetic_spinner_rings
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/flip_coin
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/flip_pages
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/fold_stack_unstack_unfold_cloths
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/fold_unfold_paper_basic
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/fold_unfold_paper_origami
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/fry_bread
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/fry_egg
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/gather_roll_dice
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/insert_dump_blocks
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/insert_remove_airpods
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/insert_remove_bagging
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/insert_remove_bookshelf
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/insert_remove_cups_from_rack
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/insert_remove_drawer
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/insert_remove_furniture_bench_cabinet
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/insert_remove_furniture_bench_round_table
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/insert_remove_plug_socket
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/insert_remove_shirt_in_tube
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/insert_remove_tennis_ball
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/insert_remove_usb
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/insert_remove_utensils
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/knead_slime
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/load_dispense_ice
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/lock_unlock_key
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/make_sandwich
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/measure_objects
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/open_close_insert_remove_box
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/open_close_insert_remove_case
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/open_close_insert_remove_tupperware
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/paint_clean_brush
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/peel_place_sticker
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/pick_place_food
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/pick_up_and_put_down_case_or_bag
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/play_mancala
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/play_piano
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/play_reset_connect_four
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/point_and_click_remote
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/pour
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/push_pop_toy
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/put_away_set_up_board_game
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/put_in_take_out_glasses
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/put_toothpaste_on_toothbrush
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/rake_smooth_zen_garden
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/roll_ball
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/scoop_dump_ice
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/screw_unscrew_allen_fixture
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/screw_unscrew_bottle_cap
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/screw_unscrew_fingers_fixture
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/set_up_clean_up_chessboard
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/setup_cleanup_table
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/sleeve_unsleeve_cards
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/slot_batteries
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/sort_beads
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/stack
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/stack_remove_jenga
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/stack_unstack_bowls
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/stack_unstack_cups
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/stack_unstack_plates
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/stack_unstack_tupperware
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/staple_paper
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/stock_unstock_fridge
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/sweep_dustpan
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/thread_unthread_bead_necklace
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/throw_and_catch_ball
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/throw_collect_objects
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/tie_and_untie_shoelace
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/tie_untie_rubberband
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/type_keyboard
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/use_chopsticks
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/use_rubiks_cube
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/vertical_pick_place
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/wash_fruit
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/wash_kitchen_dishes
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/wash_put_away_dishes
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/wipe_kitchen_surfaces
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/wipe_screen
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/wrap
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/wrap_unwrap_food
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/write
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/zip_unzip_bag
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0
+    - path: /rlwrld/jaehyun/datasets/egodex_retargeted/gr1/zip_unzip_case
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0

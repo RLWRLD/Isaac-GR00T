@@ -1,0 +1,10 @@
+train:
+  datasets:
+    - path: datasets/egodex_mano_lerobot/part2/basic_pick_place
+      embodiment_tag: egodex
+      data_config: egodex_mano
+      weight: 1.0
+    - path: "/rlwrld/heeseung/datasets/gr1_mg_gr00t_2400"
+      embodiment_tag: new_embodiment
+      data_config: fourier_gr1_arms_waist_with_mano
+      weight: 1.0

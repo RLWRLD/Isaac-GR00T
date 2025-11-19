@@ -17,6 +17,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Optional
 
+import torch
+
 from gr00t.data.dataset import ModalityConfig
 from gr00t.data.transform.base import ComposedModalityTransform, ModalityTransform
 from gr00t.data.transform.concat import ConcatTransform
@@ -622,6 +624,57 @@ class FourierGr1ArmsWaistDataConfig(FourierGr1ArmsOnlyDataConfig):
     def transform(self):
         return super().transform()
 
+class FourierGr1ArmsWaistWithMANODataConfig(FourierGr1ArmsOnlyDataConfig):
+    video_keys = ["video.ego_view"]
+    state_keys = [
+        "state.left_arm",
+        "state.right_arm",
+        "state.left_hand",
+        "state.right_hand",
+        "state.waist",
+    ]
+    action_keys = [
+        "action.left_arm",
+        "action.right_arm",
+        "action.left_hand",
+        "action.right_hand",
+        "action.waist",
+    ]
+    language_keys = ["annotation.human.coarse_action"]
+    observation_indices = [0]
+    action_indices = list(range(16))
+    action_dim = 144
+
+    def transform(self):
+        # Get parent transform
+        parent_transform = super().transform()
+        
+        # Extract the transforms list
+        transforms = parent_transform.transforms
+        
+        # Find ConcatTransform index and insert tensor-to-numpy conversion after it
+        concat_idx = None
+        for i, t in enumerate(transforms):
+            if isinstance(t, ConcatTransform):
+                concat_idx = i
+                break
+        
+        if concat_idx is not None:
+            # Create a simple transform to convert torch tensors to numpy for state/action
+            class TensorToNumpyTransform(ModalityTransform):
+                def apply(self, data: dict) -> dict:
+                    for key in ["state", "action"]:
+                        if key in data:
+                            value = data[key]
+                            # Check if it's a torch tensor by checking for torch tensor methods
+                            if hasattr(value, 'detach') and hasattr(value, 'cpu') and hasattr(value, 'numpy'):
+                                data[key] = value.detach().cpu().numpy()
+                    return data
+            
+            # Insert after ConcatTransform, before GR00TTransform
+            transforms.insert(concat_idx + 1, TensorToNumpyTransform(apply_to=[]))
+        
+        return ComposedModalityTransform(transforms=transforms)
 
 ###########################################################################################
 
@@ -699,6 +752,7 @@ class OxeDroidDataConfig(BaseDataConfig):
 
 
 ###########################################################################################
+
 
 
 class AgibotGenie1DataConfig(BaseDataConfig):
@@ -4389,10 +4443,203 @@ class agibot_naive_config(BaseDataConfig):
 ###########################################################################################
 
 
+
+class allex_thetwo_46_ck16_egostereo_config(BaseDataConfig):
+    video_keys = ["video.camera_ego_left", "video.camera_ego_right"]
+    state_keys = [
+        "state.right_arm_joints",
+        "state.left_arm_joints",
+        "state.right_hand_joints",
+        "state.left_hand_joints",
+        "state.neck_joints",
+    ]
+    action_keys = [
+        "action.right_arm_joints",
+        "action.left_arm_joints",
+        "action.right_finger_joints",
+        "action.left_finger_joints",
+        "action.neck_joints",
+    ]
+    language_keys = ["annotation.human.task_description"]
+    observation_indices = [0]
+    action_indices = list(range(16))
+    action_dim = 46
+
+    def modality_config(self) -> dict[str, ModalityConfig]:
+        video_modality = ModalityConfig(
+            delta_indices=self.observation_indices,
+            modality_keys=self.video_keys,
+        )
+
+        state_modality = ModalityConfig(
+            delta_indices=self.observation_indices,
+            modality_keys=self.state_keys,
+        )
+
+        action_modality = ModalityConfig(
+            delta_indices=self.action_indices,
+            modality_keys=self.action_keys,
+        )
+
+        language_modality = ModalityConfig(
+            delta_indices=self.observation_indices,
+            modality_keys=self.language_keys,
+        )
+
+        modality_configs = {
+            "video": video_modality,
+            "state": state_modality,
+            "action": action_modality,
+            "language": language_modality,
+        }
+
+        return modality_configs
+
+    def transform(self) -> ModalityTransform:
+        transforms = [
+            # video transforms
+            VideoToTensor(apply_to=self.video_keys),
+            VideoCrop(apply_to=self.video_keys, scale=0.95),
+            VideoResize(apply_to=self.video_keys, height=224, width=224, interpolation="linear"),
+            VideoColorJitter(
+                apply_to=self.video_keys,
+                brightness=0.2,
+                contrast=0.2,
+                saturation=0.2,
+                hue=0.1,
+            ),
+            VideoToNumpy(apply_to=self.video_keys),
+            # state transforms
+            StateActionToTensor(apply_to=self.state_keys),
+            StateActionTransform(
+                apply_to=self.state_keys,
+                normalization_modes={key: "q99" for key in self.state_keys},
+            ),
+            # action transforms
+            StateActionToTensor(apply_to=self.action_keys),
+            StateActionTransform(
+                apply_to=self.action_keys,
+                normalization_modes={key: "q99" for key in self.action_keys},
+            ),
+            # concat transforms
+            ConcatTransform(
+                video_concat_order=self.video_keys,
+                state_concat_order=self.state_keys,
+                action_concat_order=self.action_keys,
+            ),
+            # model-specific transform
+            GR00TTransform(
+                state_horizon=len(self.observation_indices),
+                action_horizon=len(self.action_indices),
+                max_state_dim=64,
+                max_action_dim=self.action_dim,
+                
+            ),
+        ]
+        return ComposedModalityTransform(transforms=transforms)
+###########################################################################################
+
+
+class allex_thetwo_46_ck16_egostereo_history_config(BaseDataConfig):
+    video_keys = ["video.camera_ego_left", "video.camera_ego_right"]
+    state_keys = [
+        "state.right_arm_joints",
+        "state.left_arm_joints",
+        "state.right_hand_joints",
+        "state.left_hand_joints",
+        "state.neck_joints",
+    ]
+    action_keys = [
+        "action.right_arm_joints",
+        "action.left_arm_joints",
+        "action.right_finger_joints",
+        "action.left_finger_joints",
+        "action.neck_joints",
+    ]
+    language_keys = ["annotation.human.task_description"]
+    observation_indices = [-10, 0]
+    action_indices = list(range(16))
+    action_dim = 46
+
+    def modality_config(self) -> dict[str, ModalityConfig]:
+        video_modality = ModalityConfig(
+            delta_indices=self.observation_indices,
+            modality_keys=self.video_keys,
+        )
+
+        state_modality = ModalityConfig(
+            delta_indices=self.observation_indices,
+            modality_keys=self.state_keys,
+        )
+
+        action_modality = ModalityConfig(
+            delta_indices=self.action_indices,
+            modality_keys=self.action_keys,
+        )
+
+        language_modality = ModalityConfig(
+            delta_indices=self.observation_indices,
+            modality_keys=self.language_keys,
+        )
+
+        modality_configs = {
+            "video": video_modality,
+            "state": state_modality,
+            "action": action_modality,
+            "language": language_modality,
+        }
+
+        return modality_configs
+
+    def transform(self) -> ModalityTransform:
+        transforms = [
+            # video transforms
+            VideoToTensor(apply_to=self.video_keys),
+            VideoCrop(apply_to=self.video_keys, scale=0.95),
+            VideoResize(apply_to=self.video_keys, height=224, width=224, interpolation="linear"),
+            VideoColorJitter(
+                apply_to=self.video_keys,
+                brightness=0.2,
+                contrast=0.2,
+                saturation=0.2,
+                hue=0.1,
+            ),
+            VideoToNumpy(apply_to=self.video_keys),
+            # state transforms
+            StateActionToTensor(apply_to=self.state_keys),
+            StateActionTransform(
+                apply_to=self.state_keys,
+                normalization_modes={key: "q99" for key in self.state_keys},
+            ),
+            # action transforms
+            StateActionToTensor(apply_to=self.action_keys),
+            StateActionTransform(
+                apply_to=self.action_keys,
+                normalization_modes={key: "q99" for key in self.action_keys},
+            ),
+            # concat transforms
+            ConcatTransform(
+                video_concat_order=self.video_keys,
+                state_concat_order=self.state_keys,
+                action_concat_order=self.action_keys,
+            ),
+            # model-specific transform
+            GR00TTransform(
+                state_horizon=len(self.observation_indices),
+                action_horizon=len(self.action_indices),
+                max_state_dim=64,
+                max_action_dim=self.action_dim,
+                
+            ),
+        ]
+        return ComposedModalityTransform(transforms=transforms)
+#######################
+
 ###########################################################################################
 
 DATA_CONFIG_MAP = {
     "fourier_gr1_arms_waist": FourierGr1ArmsWaistDataConfig(),
+    "fourier_gr1_arms_waist_with_mano": FourierGr1ArmsWaistWithMANODataConfig(),
     "fourier_gr1_arms_only": FourierGr1ArmsOnlyDataConfig(),
     "fourier_gr1_full_upper_body": FourierGr1FullUpperBodyDataConfig(),
     "bimanual_panda_gripper": BimanualPandaGripperDataConfig(),
@@ -4447,6 +4694,9 @@ DATA_CONFIG_MAP = {
 
     "allex_theone_bimanual_46_short_ego_side": allex_theone_bimanual_46_short_ego_side_config(),
 
+    "allex_thetwo_46_ck16_egostereo": allex_thetwo_46_ck16_egostereo_config(),
+    "allex_thetwo_46_ck16_egostereo_history": allex_thetwo_46_ck16_egostereo_history_config(),
+    
     "egodex_naive": egodex_naive_config(),
     "egodex_mano": egodex_mano_config(),
     "agibot_naive": agibot_naive_config(),
