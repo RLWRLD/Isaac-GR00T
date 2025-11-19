@@ -33,12 +33,12 @@ from gr00t.model.policy import Gr00tPolicy
 
 # 24개 GR1 환경 리스트
 GR1_TASK_LIST = [
-    "gr1_unified/PnPCupToDrawerClose_GR1ArmsAndWaistFourierHands_Env",
-    "gr1_unified/PnPPotatoToMicrowaveClose_GR1ArmsAndWaistFourierHands_Env",
-    "gr1_unified/PnPMilkToMicrowaveClose_GR1ArmsAndWaistFourierHands_Env",
     "gr1_unified/PnPBottleToCabinetClose_GR1ArmsAndWaistFourierHands_Env",
-    "gr1_unified/PnPWineToCabinetClose_GR1ArmsAndWaistFourierHands_Env",
     "gr1_unified/PnPCanToDrawerClose_GR1ArmsAndWaistFourierHands_Env",
+    "gr1_unified/PnPCupToDrawerClose_GR1ArmsAndWaistFourierHands_Env",
+    "gr1_unified/PnPMilkToMicrowaveClose_GR1ArmsAndWaistFourierHands_Env",
+    "gr1_unified/PnPPotatoToMicrowaveClose_GR1ArmsAndWaistFourierHands_Env",
+    "gr1_unified/PnPWineToCabinetClose_GR1ArmsAndWaistFourierHands_Env",
     "gr1_unified/PosttrainPnPNovelFromCuttingboardToBasketSplitA_GR1ArmsAndWaistFourierHands_Env",
     "gr1_unified/PosttrainPnPNovelFromCuttingboardToCardboardboxSplitA_GR1ArmsAndWaistFourierHands_Env",
     "gr1_unified/PosttrainPnPNovelFromCuttingboardToPanSplitA_GR1ArmsAndWaistFourierHands_Env",
@@ -143,6 +143,9 @@ if __name__ == "__main__":
                     task_video_dir = os.path.join(args.output_dir, task_name)
                     os.makedirs(task_video_dir, exist_ok=True)
                     
+                    print("**********************************************")
+                    print(task_video_dir)
+                    print("**********************************************")
                     # Create simulation configuration for this environment
                     config = SimulationConfig(
                         env_name=env_name,
@@ -175,11 +178,22 @@ if __name__ == "__main__":
                     }
                     results.append(result)
                     
+                    # Save task-specific result to CSV
+                    task_csv_path = os.path.join(task_video_dir, "output.csv")
+                    task_df = pd.DataFrame([result])
+                    task_df.to_csv(task_csv_path, index=False)
+                    
                     print(f"  Success rate: {success_rate:.3f} ({n_successes}/{args.n_episodes})")
                     print(f"  Evaluation time: {evaluation_time:.1f}s")
                     
                 except Exception as e:
                     print(f"  ERROR: Failed to evaluate {env_name}: {str(e)}")
+                    
+                    # Create task-specific directory for videos (in case it wasn't created)
+                    task_name = env_name.split('/')[-1]  # Get the last part of the env name
+                    task_video_dir = os.path.join(args.output_dir, task_name)
+                    os.makedirs(task_video_dir, exist_ok=True)
+                    
                     result = {
                         'env_name': env_name,
                         'success_rate': 0.0,
@@ -189,6 +203,11 @@ if __name__ == "__main__":
                         'status': f'error: {str(e)}'
                     }
                     results.append(result)
+                    
+                    # Save task-specific result to CSV (even for errors)
+                    task_csv_path = os.path.join(task_video_dir, "output.csv")
+                    task_df = pd.DataFrame([result])
+                    task_df.to_csv(task_csv_path, index=False)
             
             # Save results to CSV in output directory
             csv_path = os.path.join(args.output_dir, "results.csv")

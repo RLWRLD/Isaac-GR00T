@@ -76,7 +76,6 @@ class SimulationConfig:
     video: VideoConfig = field(default_factory=VideoConfig)
     multistep: MultiStepConfig = field(default_factory=MultiStepConfig)
 
-
 class SimulationInferenceClient(BasePolicy):
     """Client for running simulations and communicating with the inference server."""
 
@@ -179,7 +178,8 @@ class SimulationInferenceClient(BasePolicy):
 def _create_single_env(config: SimulationConfig, idx: int) -> gym.Env:
     """Create a single environment with appropriate wrappers."""
     # Create base environment
-    env = gym.make(config.env_name, enable_render=True)
+    env = gym.make(config.env_name, enable_render=True, seed=42+idx) # jaehyun : different seed for each environment
+    print("==============SEED INITIALIZED==============")
     # Add video recording wrapper if needed (only for the first environment)
     if config.video.video_dir is not None:
         video_recorder = VideoRecorder.create_h264(
