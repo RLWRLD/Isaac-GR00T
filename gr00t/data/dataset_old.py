@@ -1286,6 +1286,7 @@ class LeRobotMixtureDataset(Dataset):
             q01_array = np.array(q01_list)
             q99_array = np.array(q99_list)
 
+            # Check array shapes
             print(f"  Valid tasks: {len(valid_task_indices)}")
             print(f"  Mean array shape: {mean_array.shape}")
             print(f"  Valid weights shape: {valid_weights_array.shape}")

@@ -37,6 +37,8 @@ class EmbodimentTag(Enum):
     Any new embodiment for finetuning.
     """
 
+    EGODEX = "egodex_naive"
+
 
 # Embodiment tag string: to projector index in the Action Expert Module
 EMBODIMENT_TAG_MAPPING = {
@@ -44,4 +46,5 @@ EMBODIMENT_TAG_MAPPING = {
     EmbodimentTag.OXE_DROID.value: 17,
     EmbodimentTag.AGIBOT_GENIE1.value: 26,
     EmbodimentTag.GR1.value: 24,
+    EmbodimentTag.EGODEX.value: 30,
 }

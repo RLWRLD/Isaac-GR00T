@@ -122,3 +122,8 @@ playground/
 demo_data/gr00t-gr1-apple-to-shelf/
 tmp/
 output/
+
+wandb/
+gr00t.egg-info/
+MUJOCO_LOG.TXT
+

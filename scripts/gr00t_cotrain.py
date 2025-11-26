@@ -197,16 +197,41 @@ def _copy_partial_action_expert_weights(old_dict, new_dict, old_dim, new_dim):
 def main(config: ArgsConfig):
     """Main training function."""
     # ------------ step 1: load dataset ------------
-    embodiment_tag = EmbodimentTag(config.embodiment_tag)
-    # embodiment_tags = [EmbodimentTag("gr1"), EmbodimentTag("new_embodiment")]
-
+    # embodiment_tag = EmbodimentTag(config.embodiment_tag)
+    embodiment_tags = []
+    for i in range(len(config.dataset_path)):
+        if ('gr1' in config.dataset_path[i]):
+            embodiment_tags.append(EmbodimentTag('gr1'))
+        else:
+            embodiment_tags.append(EmbodimentTag('new_embodiment'))
+    # print (embodiment_tags)
+    
     # 1.1 modality configs and transforms
     data_config_cls = load_data_config(config.data_config)
-    modality_configs = data_config_cls.modality_config()
+    # modality_configs = data_config_cls.modality_config()
     transforms = data_config_cls.transform()
 
-    # data_config_cls_1 = load_data_config("fourier_gr1_arms_waist")
-    # data_config_cls_2 = load_data_config("agibot_beta1")
+    modality_configs = []
+    transforms_lst = []
+    for i in range (len(config.dataset_path)):
+        if ('gr1' in config.dataset_path[i]):
+            data_config_cls = load_data_config('fourier_gr1_arms_waist')
+            modality_configs.append(data_config_cls.modality_config())
+            transforms_lst.append(data_config_cls.transform())
+        else:
+            data_config_cls = load_data_config('agibot_beta1')
+            modality_configs.append(data_config_cls.modality_config())
+            transforms_lst.append(data_config_cls.transform())
+    # print (modality_configs)
+    # print (transforms)
+
+    dataset_sampling_weights = []
+    for i in range (len(config.dataset_path)):
+        if ('gr1' in config.dataset_path[i]):
+            dataset_sampling_weights.append(float(len(config.dataset_path)-1))
+        else:
+            dataset_sampling_weights.append(1.0)
+    print (dataset_sampling_weights)
 
     # 1.2 data loader: we will use either single dataset or mixture dataset
     if len(config.dataset_path) == 1:
@@ -218,31 +243,45 @@ def main(config: ArgsConfig):
             video_backend=config.video_backend,
         )
     else:
-        embodiment_tag_list = []
-        modality_configs_list = []
-
         single_datasets = []
-        for p in config.dataset_path:
-            assert os.path.exists(p), f"Dataset path {p} does not exist"
+        for dataset_idx, dataset_path in enumerate(config.dataset_path):
+            # print (dataset_path)
+            assert os.path.exists(dataset_path), f"Dataset path {dataset_path} does not exist"
             ## We use the same transforms, modality configs, and embodiment tag for all datasets here,
             ## in reality, you can use dataset from different modalities and embodiment tags
             dataset = LeRobotSingleDataset(
-                dataset_path=p,
-                modality_configs=modality_configs,
-                transforms=transforms,
-                embodiment_tag=embodiment_tag,
+                dataset_path=dataset_path,
+                modality_configs=modality_configs[dataset_idx],
+                transforms=transforms_lst[dataset_idx],
+                embodiment_tag=embodiment_tags[dataset_idx],
                 video_backend=config.video_backend,
             )
             single_datasets.append(dataset)
+        # for p in config.dataset_path:
+        #     assert os.path.exists(p), f"Dataset path {p} does not exist"
+        #     ## We use the same transforms, modality configs, and embodiment tag for all datasets here,
+        #     ## in reality, you can use dataset from different modalities and embodiment tags
+        #     dataset = LeRobotSingleDataset(
+        #         dataset_path=p,
+        #         modality_configs=modality_configs,
+        #         transforms=transforms,
+        #         embodiment_tag=embodiment_tag,
+        #         video_backend=config.video_backend,
+        #     )
+        #     single_datasets.append(dataset)
         # xxx = [
         #         (dataset, 1.0)  # we will use equal weights for all datasets
         #         for dataset in single_datasets
         #     ]
         # print (xxx)
         train_dataset = LeRobotMixtureDataset(
+            # data_mixture=[
+            #     (dataset, 1.0)  # we will use equal weights for all datasets
+            #     for dataset in single_datasets
+            # ],
             data_mixture=[
-                (dataset, 1.0)  # we will use equal weights for all datasets
-                for dataset in single_datasets
+            (dataset, dataset_sampling_weights[dataset_idx])  # we will use equal weights for all datasets
+            for dataset_idx, dataset in enumerate(single_datasets)
             ],
             mode="train",
             balance_dataset_weights=config.balance_dataset_weights,
