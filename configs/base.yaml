@@ -1,0 +1,6 @@
+train:
+  datasets:
+    - path: "datasets/gr1_tabletop"
+      embodiment_tag: "gr1"
+      data_config: fourier_gr1_arms_only
+      weight: 1.0

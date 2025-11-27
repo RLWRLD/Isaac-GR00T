@@ -1,0 +1,6 @@
+train:
+  datasets:
+    - path: datasets/egodex_mano_lerobot/part2/basic_pick_place
+      embodiment_tag: egodex
+      data_config: egodex_mano
+      weight: 1.0

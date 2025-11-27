@@ -1,0 +1,6 @@
+train:
+  datasets:
+    - path: "/rlwrld/heeseung/datasets/gr1_mg_gr00t_2400"
+      embodiment_tag: "new_embodiment"
+      data_config: fourier_gr1_arms_waist
+      weight: 1.0

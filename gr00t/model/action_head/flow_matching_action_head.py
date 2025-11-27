@@ -15,6 +15,7 @@
 
 from dataclasses import dataclass, field
 
+import numpy as np
 import torch
 import torch.nn.functional as F
 from torch import nn
@@ -39,9 +40,21 @@ class CategorySpecificLinear(nn.Module):
         self.b = nn.Parameter(torch.zeros(num_categories, hidden_dim))
 
     def forward(self, x, cat_ids):
-        selected_W = self.W[cat_ids]
-        selected_b = self.b[cat_ids]
-        return torch.bmm(x, selected_W) + selected_b.unsqueeze(1)
+        # Handle both scalar and tensor cat_ids
+        if isinstance(cat_ids, int):
+            # For scalar cat_ids, we need to handle batch dimension properly
+            selected_W = self.W[cat_ids]  # Shape: [input_dim, hidden_dim]
+            selected_b = self.b[cat_ids]  # Shape: [hidden_dim]
+            
+            # Use torch.matmul for proper broadcasting: [B, T, input_dim] @ [input_dim, hidden_dim] -> [B, T, hidden_dim]
+            result = torch.matmul(x, selected_W) + selected_b
+        else:
+            # For tensor cat_ids, use original bmm approach
+            selected_W = self.W[cat_ids]
+            selected_b = self.b[cat_ids]
+            result = torch.bmm(x, selected_W) + selected_b.unsqueeze(1)
+            
+        return result
 
 
 class CategorySpecificMLP(nn.Module):
@@ -152,6 +165,16 @@ class FlowmatchingActionHeadConfig(PretrainedConfig):
     use_vlln: bool = field(default=True)
 
     vl_self_attention_cfg: dict = field(default=None)
+    num_target_vision_tokens: int = field(
+        default=32, metadata={"help": "Number of target vision tokens."}
+    )
+    inference_rtc_overlap_steps: int = field(
+        default=None, metadata={"help": "Real-time chunking full overlap steps for inference."}
+    )
+    inference_rtc_frozen_steps: int = field(
+        default=None, metadata={"help": "Real-time chunking freeze steps for inference."}
+    )
+    rtc_ramp_rate: float = field(default=1.0, metadata={"help": "Ramp rate for real-time chunking."})
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -193,6 +216,8 @@ class FlowmatchingActionHead(nn.Module):
             hidden_dim=self.hidden_size,
             output_dim=self.action_dim,
         )
+        self.future_tokens = nn.Embedding(config.num_target_vision_tokens, self.input_embedding_dim)
+        nn.init.normal_(self.future_tokens.weight, mean=0.0, std=0.02)
 
         self.vlln = (
             nn.LayerNorm(config.backbone_embedding_dim) if config.use_vlln else nn.Identity()
@@ -235,9 +260,6 @@ class FlowmatchingActionHead(nn.Module):
         if not any(p.requires_grad for p in self.parameters()):
             print("Warning: No action head trainable parameters found.")
 
-        # if self.freeze_decode_layer:
-        #     self.decode_layer.requires_grad_(False)
-
     def set_frozen_modules_to_eval_mode(self):
         """
         Huggingface will call model.train() at each training_step. To ensure
@@ -256,7 +278,8 @@ class FlowmatchingActionHead(nn.Module):
 
     def sample_time(self, batch_size, device, dtype):
         sample = self.beta_dist.sample([batch_size]).to(device, dtype=dtype)
-        return (self.config.noise_s - sample) / self.config.noise_s
+        # return self.config.noise_s * (1 - sample)  # NOTE(YL): proposed fix
+        return (self.config.noise_s - sample) / self.config.noise_s  # original in gr00t
 
     def prepare_input(self, batch: dict) -> BatchFeature:
         return BatchFeature(data=batch)
@@ -294,8 +317,8 @@ class FlowmatchingActionHead(nn.Module):
                 action_input[k] = expanded
 
         # Get vision and language embeddings.
-        vl_embeds = backbone_output.backbone_features
-        device = vl_embeds.device
+        vl_embs = backbone_output.backbone_features
+        device = vl_embs.device
 
         # Get embodiment ID.
         embodiment_id = action_input.embodiment_id
@@ -323,8 +346,9 @@ class FlowmatchingActionHead(nn.Module):
             action_features = action_features + pos_embs
 
         # Join vision, language, state and action embedding along sequence dimension.
-        sa_embs = torch.cat((state_features, action_features), dim=1)
-        vl_embs = vl_embeds
+        future_tokens = self.future_tokens.weight.unsqueeze(0).expand(vl_embs.shape[0], -1, -1)
+        sa_embs = torch.cat((state_features, future_tokens, action_features), dim=1)
+
         vl_attn_mask = backbone_output.backbone_attention_mask
 
         model_output = self.model(
@@ -341,6 +365,7 @@ class FlowmatchingActionHead(nn.Module):
         action_mask = action_input.action_mask
         loss = F.mse_loss(pred_actions, velocity, reduction="none") * action_mask
         loss = loss.sum() / action_mask.sum()
+
         output_dict = {
             "loss": loss,
         }
@@ -352,23 +377,73 @@ class FlowmatchingActionHead(nn.Module):
         backbone_output = self.process_backbone_output(backbone_output)
 
         # Get vision and language embeddings.
-        vl_embeds = backbone_output.backbone_features
+        vl_embs = backbone_output.backbone_features
         embodiment_id = action_input.embodiment_id
+
+        # Convert state to tensor if it's numpy array
+        if isinstance(action_input.state, np.ndarray):
+            action_input.state = torch.from_numpy(action_input.state).to(device=vl_embeds.device, dtype=vl_embeds.dtype)
 
         # Embed state.
         state_features = self.state_encoder(action_input.state, embodiment_id)
 
         # Set initial actions as the sampled noise.
-        batch_size = vl_embeds.shape[0]
-        device = vl_embeds.device
+        batch_size = vl_embs.shape[0]
+        device = vl_embs.device
         actions = torch.randn(
             size=(batch_size, self.config.action_horizon, self.config.action_dim),
-            dtype=vl_embeds.dtype,
+            dtype=vl_embs.dtype,
             device=device,
         )
 
+        # Real-time chunking. NOTE(YL): simple implementation of RTC, can be improved with better guidance impl
+        # this treats the action sequence as a in-painting problem, if the inference_rtc_size is provided, we will take
+        # the "action" from the action_input and take the last inference_rtc_size steps as the initial actions
+        use_rtc = False
+
+        action_available = False
+        for key in action_input.keys():
+            if key.startswith("action"):
+                action_available = True
+                break
+
+        if self.config.inference_rtc_overlap_steps is not None and action_available:
+            print("action available, using RTC")
+            assert (
+                "action" in action_input.keys()
+            ), "action must be in action_input when using Realtime chunking"
+            # take the last prior action [batch, inference_rtc_overlap_steps, action_dim] and move it as the first inference_rtc_overlap_steps steps
+            # print("[DEBUG] action_input: ", action_input["action"])
+            print("[DEBUG] action_input.keys(): ", action_input.keys())
+            actions[:, : self.config.inference_rtc_overlap_steps, :] = action_input["action"][
+                :, -self.config.inference_rtc_overlap_steps :, :
+            ]
+            use_rtc = True
+
         num_steps = self.num_inference_timesteps
         dt = 1.0 / num_steps
+
+        vel_strength = torch.ones_like(actions)
+        if use_rtc:
+            # we will only freeze the freeze steps, which is the entire e2e forward pass time.
+            vel_strength[:, : self.config.inference_rtc_frozen_steps, :] = 0.0
+            # # NOTE: use an exponential ramp strength to set the remaining unfrozen rtc_steps
+            intermediate_steps = (
+                self.config.inference_rtc_overlap_steps - self.config.inference_rtc_frozen_steps
+            )
+            # # Create exponential ramp from 0 to 1 over intermediate steps
+            t = torch.linspace(0.0, 1.0, intermediate_steps + 2, device=device)
+            ramp = 1 - torch.exp(-self.config.rtc_ramp_rate * t)
+            ramp = ramp / ramp[-1].clamp_min(1e-8)  # normalize to [0,1]
+            ramp = ramp[
+                1:-1
+            ]  # we will only take the middle part of the ramp, ignore the 0.0 and 1.0
+            # Apply ramp to the intermediate steps [batch, intermediate_steps, action_dim]
+            vel_strength[
+                :,
+                self.config.inference_rtc_frozen_steps : self.config.inference_rtc_overlap_steps,
+                :,
+            ] = ramp[None, :, None].to(device)
 
         # Run denoising steps.
         for t in range(num_steps):
@@ -386,10 +461,9 @@ class FlowmatchingActionHead(nn.Module):
                 pos_embs = self.position_embedding(pos_ids).unsqueeze(0)
                 action_features = action_features + pos_embs
 
-            vl_embs = vl_embeds
-
             # Join vision, language, state and action embedding along sequence dimension.
-            sa_embs = torch.cat((state_features, action_features), dim=1)
+            future_tokens = self.future_tokens.weight.unsqueeze(0).expand(vl_embs.shape[0], -1, -1)
+            sa_embs = torch.cat((state_features, future_tokens, action_features), dim=1)
 
             # Run model forward.
             model_output = self.model(
@@ -402,7 +476,7 @@ class FlowmatchingActionHead(nn.Module):
             pred_velocity = pred[:, -self.action_horizon :]
 
             # Update actions using euler integration.
-            actions = actions + dt * pred_velocity
+            actions = actions + dt * pred_velocity * vel_strength
         return BatchFeature(data={"action_pred": actions})
 
     @property

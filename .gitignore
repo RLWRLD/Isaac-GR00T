@@ -1,9 +1,11 @@
 # C extensions
 *.so
+*.mp4
 
 # Distribution / packaging
 .Python
 build/
+checkpoints/
 develop-eggs/
 dist/
 downloads/
@@ -122,3 +124,16 @@ playground/
 demo_data/gr00t-gr1-apple-to-shelf/
 tmp/
 output/
+outputs
+videos
+out
+log
+datasets
+
+# Slurm
+*.sh
+
+wandb/
+gr00t.egg-info/
+MUJOCO_LOG.TXT
+

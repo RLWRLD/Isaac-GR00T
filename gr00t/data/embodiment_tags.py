@@ -32,15 +32,20 @@ class EmbodimentTag(Enum):
     The AgiBot Genie-1 with gripper dataset.
     """
 
+    EGODEX = "egodex"
+    """
+    The Egodex dataset.
+    """
+
     NEW_EMBODIMENT = "new_embodiment"
     """
     Any new embodiment for finetuning.
     """
 
-
 # Embodiment tag string: to projector index in the Action Expert Module
 EMBODIMENT_TAG_MAPPING = {
     EmbodimentTag.NEW_EMBODIMENT.value: 31,
+    EmbodimentTag.EGODEX.value: 30,
     EmbodimentTag.OXE_DROID.value: 17,
     EmbodimentTag.AGIBOT_GENIE1.value: 26,
     EmbodimentTag.GR1.value: 24,

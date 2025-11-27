@@ -240,6 +240,67 @@ class VideoTransform(ModalityTransform):
         )
 
 
+class VideoPerspective(VideoTransform):
+    height: int | None = Field(default=None, description="The height of the input image")
+    width: int | None = Field(default=None, description="The width of the input image")
+    distortion: float = Field(
+        ...,
+        description="The distortion of the projective transform. The distortion is a float between 0 and 1.",
+    ),
+    p: float | None = Field(
+        ...,
+        description="The probability of the perspective transform. The probability is a float between 0 and 1.",
+    ),
+
+    def get_transform(self, mode: Literal["train", "eval"] = "train") -> Callable:
+        """Get the transform for the given mode.
+
+        Args:
+            mode (Literal["train", "eval"]): The mode to get the transform for.
+
+        Returns:
+            Callable: If mode is "train", return a random perspective transform. If mode is "eval", return a center perspective transform.
+        """
+        # 1. Check the input resolution
+        assert (
+            len(set(self.original_resolutions.values())) == 1
+        ), f"All video keys must have the same resolution, got: {self.original_resolutions}"
+        if self.height is None:
+            assert self.width is None, "Height and width must be either both provided or both None"
+            self.width, self.height = self.original_resolutions[self.apply_to[0]]
+        else:
+            assert (
+                self.width is not None
+            ), "Height and width must be either both provided or both None"
+        # 2. Create the transform
+        # size = (int(self.height * self.scale), int(self.width * self.scale))
+        if self.backend == "torchvision":
+            if mode == "train":
+                return T.RandomPerspective(distortion_scale=self.distortion, p=self.p)
+            elif mode == "eval":
+                return T.RandomPerspective(distortion_scale=0, p=1)
+            else:
+                raise ValueError(f"Crop mode {mode} not supported")
+        elif self.backend == "albumentations":
+            raise ValueError(f"Crop mode {mode} not supported")
+        else:
+            raise ValueError(f"Backend {self.backend} not supported")
+
+    def check_input(self, data: dict[str, Any]):
+        super().check_input(data)
+        # Check the input resolution
+        for key in self.apply_to:
+            if self.backend == "torchvision":
+                height, width = data[key].shape[-2:]
+            elif self.backend == "albumentations":
+                height, width = data[key].shape[-3:-1]
+            else:
+                raise ValueError(f"Backend {self.backend} not supported")
+            assert (
+                height == self.height and width == self.width
+            ), f"Video {key} has invalid shape {height, width}, expected {self.height, self.width}"
+
+
 class VideoCrop(VideoTransform):
     height: int | None = Field(default=None, description="The height of the input image")
     width: int | None = Field(default=None, description="The width of the input image")

@@ -1,0 +1,6 @@
+train:
+  datasets:
+    - path: /rlwrld/jaehyun/Isaac-GR00T/datasets/real_allex/20251118_rotatingtoreta_lerobot
+      embodiment_tag: new_embodiment
+      data_config: allex_thetwo_46_ck16_egostereo
+      weight: 1.0

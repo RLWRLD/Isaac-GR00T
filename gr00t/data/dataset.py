@@ -44,6 +44,7 @@ from .schema import (
     DatasetStatisticalValues,
     LeRobotModalityMetadata,
     LeRobotStateActionMetadata,
+    StateActionMetadata,
 )
 from .transform import ComposedModalityTransform
 
@@ -70,12 +71,40 @@ def calculate_dataset_statistics(parquet_paths: list[Path]) -> dict:
         all_low_dim_data_list.append(parquet_data)
     all_low_dim_data = pd.concat(all_low_dim_data_list, axis=0)
     # Compute dataset statistics
+    # print (all_low_dim_data.columns)
+    new_columns = []
+    for col in all_low_dim_data.columns:
+        if 'end' not in col:
+            new_columns.append(col)
     dataset_statistics = {}
-    for le_modality in all_low_dim_data.columns:
+    for le_modality in new_columns:
+    # for le_modality in all_low_dim_data.columns:
         print(f"Computing statistics for {le_modality}...")
-        np_data = np.vstack(
-            [np.asarray(x, dtype=np.float32) for x in all_low_dim_data[le_modality]]
-        )
+        #np_data = np.vstack(
+        #    [np.asarray(x, dtype=np.float32) for x in all_low_dim_data[le_modality]]
+        #)
+        try:
+            # Attempt to stack and convert to float32.
+            # This will raise an error for non-numeric types like strings.
+            np_data_stacked = np.vstack(
+                [np.asarray(x) for x in all_low_dim_data[le_modality]]
+            )
+            # Check if the stacked data can be cast to float32
+            if not np.issubdtype(np_data_stacked.dtype, np.number) and not np.issubdtype(np_data_stacked.dtype, np.bool_):
+                 # If it's not a numeric or boolean type that can be safely converted, skip.
+                if np_data_stacked.dtype.kind not in 'biufc': # check for bool, int, unsigned int, float, complex
+                    print(f"Skipping statistics for non-numeric column {le_modality} with dtype {np_data_stacked.dtype}")
+                    continue
+            
+            # If it's already numeric or can be safely cast, proceed
+            np_data = np.vstack(
+                [np.asarray(x, dtype=np.float32) for x in all_low_dim_data[le_modality]]
+            )
+
+        except ValueError:
+            # If conversion to float32 fails (e.g., for string data), skip this column
+            print(f"Skipping statistics for column {le_modality} due to data type mismatch.")
+            continue        
         dataset_statistics[le_modality] = {
             "mean": np.mean(np_data, axis=0).tolist(),
             "std": np.std(np_data, axis=0).tolist(),
@@ -106,7 +135,7 @@ class LeRobotSingleDataset(Dataset):
         dataset_path: Path | str,
         modality_configs: dict[str, ModalityConfig],
         embodiment_tag: str | EmbodimentTag,
-        video_backend: str = "decord",
+        video_backend: str = "torchcodec",
         video_backend_kwargs: dict | None = None,
         transforms: ComposedModalityTransform | None = None,
     ):
@@ -141,10 +170,31 @@ class LeRobotSingleDataset(Dataset):
             self.tag = embodiment_tag
 
         self._metadata = self._get_metadata(EmbodimentTag(self.tag))
-        self._trajectory_ids, self._trajectory_lengths = self._get_trajectories()
+
+        if ("AgiBotWorld" in str(self._dataset_path)):
+            self._trajectory_ids, self._trajectory_lengths, self._action_texts = self._get_action_texts()
+        else:
+            self._trajectory_ids, self._trajectory_lengths = self._get_trajectories()
         self._all_steps = self._get_all_steps()
         self._modality_keys = self._get_modality_keys()
         self._delta_indices = self._get_delta_indices()
+        self._max_delta_index = self._get_max_delta_index()
+
+
+
+
+        # NOTE(YL): method to predict the task progress
+        if "action.task_progress" in self._modality_keys["action"]:
+            print("action.task_progress is in the action modality, task progress will be label")
+            self._modality_keys["action"].append("action.task_progress")
+            self._metadata.modalities.action["task_progress"] = StateActionMetadata(
+                absolute=True, rotation_type=None, shape=(1,), continuous=True
+            )
+            # assume the task progress is uniformly distributed between 0 and 1
+            self._metadata.statistics.action["task_progress"] = DatasetStatisticalValues(
+                max=[1.0], min=[0.0], mean=[0.5], std=[0.2887], q01=[0.01], q99=[0.99]
+            )
+
         self.set_transforms_metadata(self.metadata)
         self.set_epoch(0)
 
@@ -218,6 +268,21 @@ class LeRobotSingleDataset(Dataset):
     def delta_indices(self) -> dict[str, np.ndarray]:
         """The delta indices for the dataset. The keys are the modality.key, and the values are the delta indices for each modality.key."""
         return self._delta_indices
+
+    def _get_max_delta_index(self) -> int:
+        """Calculate the maximum delta index across all modalities.
+        Returns:
+            int: The maximum delta index value.
+        """
+        max_delta_index = 0
+        for delta_index in self.delta_indices.values():
+            max_delta_index = max(max_delta_index, delta_index.max())
+        return max_delta_index
+
+    @property
+    def max_delta_index(self) -> int:
+        """The maximum delta index across all modalities."""
+        return self._max_delta_index
 
     @property
     def dataset_name(self) -> str:
@@ -321,6 +386,7 @@ class LeRobotSingleDataset(Dataset):
             }
 
         # 2. Dataset statistics
+
         stats_path = self.dataset_path / LE_ROBOT_STATS_FILENAME
         try:
             with open(stats_path, "r") as f:
@@ -335,6 +401,31 @@ class LeRobotSingleDataset(Dataset):
             le_statistics = calculate_dataset_statistics(parquet_files)
             with open(stats_path, "w") as f:
                 json.dump(le_statistics, f, indent=4)
+        dataset_statistics = {}
+
+
+        # stats_path = self.dataset_path / LE_ROBOT_STATS_FILENAME
+        # # try:
+        # #     with open(stats_path, "r") as f:
+        # #         le_statistics = json.load(f)
+        # #     for stat in le_statistics.values():
+        # #         DatasetStatisticalValues.model_validate(stat)
+        # # except (FileNotFoundError, ValidationError) as e:
+        # #     print(f"Failed to load dataset statistics: {e}")
+        # #     print(f"Calculating dataset statistics for {self.dataset_name}")
+        # #     # Get all parquet files in the dataset paths
+        # #     parquet_files = list((self.dataset_path).glob(LE_ROBOT_DATA_FILENAME))
+        # #     le_statistics = calculate_dataset_statistics(parquet_files)
+        # #     with open(stats_path, "w") as f:
+        # #         json.dump(le_statistics, f, indent=4)
+
+        # print(f"Calculating dataset statistics for {self.dataset_name}")
+        #     # Get all parquet files in the dataset paths
+        # parquet_files = list((self.dataset_path).glob(LE_ROBOT_DATA_FILENAME))
+        # le_statistics = calculate_dataset_statistics(parquet_files)
+        # with open(stats_path, "w") as f:
+        #     json.dump(le_statistics, f, indent=4)
+
         dataset_statistics = {}
         for our_modality in ["state", "action"]:
             dataset_statistics[our_modality] = {}
@@ -372,6 +463,22 @@ class LeRobotSingleDataset(Dataset):
             trajectory_ids.append(episode["episode_index"])
             trajectory_lengths.append(episode["length"])
         return np.array(trajectory_ids), np.array(trajectory_lengths)
+    
+    def _get_action_texts(self) -> tuple[np.ndarray, np.ndarray]:
+        """Get the trajectories in the dataset."""
+        # Get trajectory lengths, IDs, and whitelist from dataset metadata
+        episode_path = self.dataset_path / LE_ROBOT_EPISODE_FILENAME
+        with open(episode_path, "r") as f:
+            episode_metadata = [json.loads(line) for line in f]
+        action_texts = []
+        trajectory_ids=[]
+        trajectory_lengths=[]
+        for episode in episode_metadata:
+            action_texts.append(episode["action_config"])
+            trajectory_ids.append(episode["episode_index"])
+            trajectory_lengths.append(episode["action_config"][-1]["end_frame"])
+
+        return np.array(trajectory_ids), np.array(trajectory_lengths), action_texts
 
     def _get_all_steps(self) -> list[tuple[int, int]]:
         """Get the trajectory IDs and base indices for all steps in the dataset.
@@ -458,6 +565,9 @@ class LeRobotSingleDataset(Dataset):
                 if key == "lapa_action" or key == "dream_actions":
                     continue  # no need for any metadata for lapa actions because it comes normalized
                 # Check if the key is valid
+                if key == "action.task_progress":
+                    continue
+
                 try:
                     self.lerobot_modality_meta.get_key_meta(key)
                 except Exception as e:
@@ -535,6 +645,13 @@ class LeRobotSingleDataset(Dataset):
             for key in self.modality_keys[modality]:
                 data[key] = self.get_data_by_modality(trajectory_id, modality, key, base_index)
         return data
+
+    def get_parquet_path(self, trajectory_id: int) -> Path:
+        """Get the parquet path for a trajectory."""
+        chunk_index = self.get_episode_chunk(trajectory_id)
+        return self.dataset_path / self.data_path_pattern.format(
+            episode_chunk=chunk_index, episode_index=trajectory_id
+        )
 
     def get_trajectory_data(self, trajectory_id: int) -> pd.DataFrame:
         """Get the data for a trajectory."""
@@ -698,6 +815,23 @@ class LeRobotSingleDataset(Dataset):
         trajectory_index = self.get_trajectory_index(trajectory_id)
         # Get the maximum length of the trajectory
         max_length = self.trajectory_lengths[trajectory_index]
+
+        # this handles action.task_progress if specified
+        if key == "action.task_progress":
+            # Get frame_index array and apply proper bounds checking and padding
+            frame_index_array = self.curr_traj_data["frame_index"].to_numpy()
+            # Use retrieve_data_and_pad to handle out-of-bounds indices
+            frame_index = self.retrieve_data_and_pad(
+                array=frame_index_array,
+                step_indices=step_indices,
+                max_length=max_length,
+                padding_strategy="first_last",  # Use first/last for task progress
+            )
+            # get the task progress by using "frame index / trajectory length"
+            progress = frame_index / max_length
+            progress = progress.reshape(-1, 1)
+            return progress
+
         assert key.startswith(modality + "."), f"{key} must start with {modality + '.'}, got {key}"
         # Get the sub-key, e.g. state.joint_angles -> joint_angles
         key = key.replace(modality + ".", "")
@@ -710,6 +844,11 @@ class LeRobotSingleDataset(Dataset):
         assert self.curr_traj_data is not None, f"No data found for {trajectory_id=}"
         assert le_key in self.curr_traj_data.columns, f"No {le_key} found in {trajectory_id=}"
         data_array: np.ndarray = np.stack(self.curr_traj_data[le_key])  # type: ignore
+        if data_array.ndim == 1:
+            assert (
+                data_array.shape[0] == max_length
+            ), f"Expected 1D array with length {max_length}, got {data_array.shape} array"
+            data_array = data_array.reshape(-1, 1)
         assert data_array.ndim == 2, f"Expected 2D array, got {data_array.shape} array"
         le_indices = np.arange(
             le_state_or_action_cfg[key].start,
@@ -771,7 +910,25 @@ class LeRobotSingleDataset(Dataset):
             original_key = key
         for i in range(len(step_indices)):
             task_indices.append(self.curr_traj_data[original_key][step_indices[i]].item())
-        return self.tasks.loc[task_indices]["task"].tolist()
+        # print(self.curr_traj_data[original_key], original_key)
+
+        if ("AgiBotWorld" in str(self._dataset_path)):
+            annotation = [""]
+            for i in range(len(self._action_texts[trajectory_index])):
+                action_text_info = self._action_texts[trajectory_index][i]
+                # start_frame = action_text_info["start_frame"]
+                end_frame = action_text_info["end_frame"]
+                action_text = action_text_info["action_text"]
+                if step_indices[0] < end_frame:
+                    annotation = [action_text]
+                    break
+            # print (annotation)
+            return annotation
+        else:
+        # print (episode_path)
+            # print (self.tasks.loc[task_indices]["task"].tolist())
+        # print (step_indices)
+            return self.tasks.loc[task_indices]["task"].tolist()
 
     def get_data_by_modality(
         self,
@@ -1095,6 +1252,11 @@ class LeRobotMixtureDataset(Dataset):
         Returns:
             A dict of overall statistics per modality.
         """
+        # Validate lengths
+        assert len(per_task_stats) == len(
+            dataset_sampling_weights
+        ), "Length of per_task_stats must match dataset_sampling_weights"
+
         # Normalize the sample weights to sum to 1
         dataset_sampling_weights = np.array(dataset_sampling_weights)
         normalized_weights = dataset_sampling_weights / dataset_sampling_weights.sum()
@@ -1102,76 +1264,94 @@ class LeRobotMixtureDataset(Dataset):
         # Initialize overall statistics dict
         overall_stats: dict[str, dict[str, list[float]]] = {}
 
-        # Get the list of modality keys
-        modality_keys = per_task_stats[0].keys()
+        # Collect all possible modality keys from all tasks
+        all_modality_keys = set()
+        for task_stats in per_task_stats:
+            all_modality_keys.update(task_stats.keys())
 
-        for modality in modality_keys:
-            # Number of dimensions (assuming consistent across tasks)
-            num_dims = len(per_task_stats[0][modality]["mean"])
-
-            # Initialize accumulators for means and variances
-            weighted_means = np.zeros(num_dims)
-            weighted_squares = np.zeros(num_dims)
-
-            # Collect min, max, q01, q99 from all tasks
+        for modality in all_modality_keys:
+            print(f"Processing modality: {modality}")
+            
+            # Find tasks that have this modality and collect their data
+            valid_task_indices = []
+            valid_weights = []
             min_list = []
             max_list = []
             q01_list = []
             q99_list = []
+            mean_list = []
+            std_list = []
 
             for task_idx, task_stats in enumerate(per_task_stats):
-                w_i = normalized_weights[task_idx]
-                stats = task_stats[modality]
-                means = np.array(stats["mean"])
-                stds = np.array(stats["std"])
+                if modality in task_stats:
+                    valid_task_indices.append(task_idx)
+                    valid_weights.append(normalized_weights[task_idx])
+                    
+                    stats = task_stats[modality]
+                    min_list.append(stats["min"])
+                    max_list.append(stats["max"])
+                    q01_list.append(stats["q01"])
+                    q99_list.append(stats["q99"])
+                    mean_list.append(stats["mean"])
+                    std_list.append(stats["std"])
+                else:
+                    print(f"WARNING: modality '{modality}' not found in task_idx {task_idx}")
 
-                # Update weighted sums for mean and variance
-                weighted_means += w_i * means
-                weighted_squares += w_i * (stds**2 + means**2)
+            # Check if we have any valid tasks for this modality
+            if len(valid_task_indices) == 0:
+                print(f"WARNING: No tasks found for modality {modality}, skipping")
+                continue
 
-                # Collect min, max, q01, q99
-                min_list.append(stats["min"])
-                max_list.append(stats["max"])
-                q01_list.append(stats["q01"])
-                q99_list.append(stats["q99"])
+            # Renormalize the valid weights to sum to 1
+            valid_weights_array = np.array(valid_weights)
+            valid_weights_array = valid_weights_array / valid_weights_array.sum()
 
-            # Compute overall mean
-            overall_mean = weighted_means.tolist()
-
-            # Compute overall variance and std deviation
-            overall_variance = weighted_squares - weighted_means**2
-            overall_std = np.sqrt(overall_variance).tolist()
-
-            # Compute overall min and max per dimension
-            overall_min = np.min(np.array(min_list), axis=0).tolist()
-            overall_max = np.max(np.array(max_list), axis=0).tolist()
-
-            # Compute overall q01 and q99 per dimension
-            # Use weighted average of per-task quantiles
+            # Convert lists to arrays
+            mean_array = np.array(mean_list)
+            std_array = np.array(std_list)
+            min_array = np.array(min_list)
+            max_array = np.array(max_list)
             q01_array = np.array(q01_list)
             q99_array = np.array(q99_list)
+
+            print(f"  Valid tasks: {len(valid_task_indices)}")
+            print(f"  Mean array shape: {mean_array.shape}")
+            print(f"  Valid weights shape: {valid_weights_array.shape}")
+
+            # Compute weighted statistics
+            # Weighted mean
+            overall_mean = np.average(mean_array, axis=0, weights=valid_weights_array)
+
+            # Weighted variance and std
+            # Var = E[X²] - (E[X])² where E[X²] = E[Var + Mean²] = E[Var] + E[Mean²]
+            variance_array = std_array ** 2
+            weighted_variance = np.average(variance_array, axis=0, weights=valid_weights_array)
+            weighted_mean_squared = np.average(mean_array ** 2, axis=0, weights=valid_weights_array)
+            overall_variance = weighted_variance + weighted_mean_squared - overall_mean ** 2
+            overall_std = np.sqrt(np.maximum(overall_variance, 0))  # Ensure non-negative
+
+            # Min and max
+            overall_min = np.min(min_array, axis=0)
+            overall_max = np.max(max_array, axis=0)
+
+            # Quantiles
             if percentile_mixing_method == "weighted_average":
-                weighted_q01 = np.average(q01_array, axis=0, weights=normalized_weights).tolist()
-                weighted_q99 = np.average(q99_array, axis=0, weights=normalized_weights).tolist()
-                # std_q01 = np.std(q01_array, axis=0).tolist()
-                # std_q99 = np.std(q99_array, axis=0).tolist()
-                # print(modality)
-                # print(f"{std_q01=}, {std_q99=}")
-                # print(f"{weighted_q01=}, {weighted_q99=}")
+                overall_q01 = np.average(q01_array, axis=0, weights=valid_weights_array)
+                overall_q99 = np.average(q99_array, axis=0, weights=valid_weights_array)
             elif percentile_mixing_method == "min_max":
-                weighted_q01 = np.min(q01_array, axis=0).tolist()
-                weighted_q99 = np.max(q99_array, axis=0).tolist()
+                overall_q01 = np.min(q01_array, axis=0)
+                overall_q99 = np.max(q99_array, axis=0)
             else:
                 raise ValueError(f"Invalid percentile mixing method: {percentile_mixing_method}")
 
             # Store the overall statistics for the modality
             overall_stats[modality] = {
-                "min": overall_min,
-                "max": overall_max,
-                "mean": overall_mean,
-                "std": overall_std,
-                "q01": weighted_q01,
-                "q99": weighted_q99,
+                "min": overall_min.tolist(),
+                "max": overall_max.tolist(),
+                "mean": overall_mean.tolist(),
+                "std": overall_std.tolist(),
+                "q01": overall_q01.tolist(),
+                "q99": overall_q99.tolist(),
             }
 
         return overall_stats
@@ -1193,6 +1373,11 @@ class LeRobotMixtureDataset(Dataset):
             metadata.embodiment_tag == metadatas[0].embodiment_tag for metadata in metadatas
         ), "All metadata must have the same embodiment tag"
         merged_metadata["embodiment_tag"] = metadatas[0].embodiment_tag
+
+        # Validate lengths
+        assert len(metadatas) == len(
+            dataset_sampling_weights
+        ), "Length of metadatas must match dataset_sampling_weights"
 
         # Merge the dataset statistics
         dataset_statistics = {}
@@ -1235,16 +1420,21 @@ class LeRobotMixtureDataset(Dataset):
 
         self.tag = EmbodimentTag.NEW_EMBODIMENT.value
         self.merged_metadata: dict[str, DatasetMetadata] = {}
-        # Group metadata by tag
+        # Group metadata and weights by tag
         all_metadatas: dict[str, list[DatasetMetadata]] = {}
-        for dataset in self.datasets:
+        all_weights: dict[str, list[float]] = {}
+        for idx, dataset in enumerate(self.datasets):
             if dataset.tag not in all_metadatas:
                 all_metadatas[dataset.tag] = []
+                all_weights[dataset.tag] = []
             all_metadatas[dataset.tag].append(dataset.metadata)
+            # self.dataset_sampling_weights aligns with self.datasets
+            all_weights[dataset.tag].append(float(self.dataset_sampling_weights[idx]))
+
         for tag, metadatas in all_metadatas.items():
             self.merged_metadata[tag] = self.merge_metadata(
                 metadatas=metadatas,
-                dataset_sampling_weights=self.dataset_sampling_weights.tolist(),
+                dataset_sampling_weights=all_weights[tag],
                 percentile_mixing_method=metadata_config["percentile_mixing_method"],
             )
         for dataset in self.datasets:

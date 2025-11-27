@@ -21,31 +21,36 @@ from pathlib import Path
 from typing import List, Literal
 
 import torch
+import yaml
 import tyro
 from transformers import TrainingArguments
 
 from gr00t.data.dataset import LeRobotMixtureDataset, LeRobotSingleDataset
 from gr00t.data.schema import EmbodimentTag
-from gr00t.experiment.data_config import DATA_CONFIG_MAP
+from gr00t.experiment.data_config import load_data_config
 from gr00t.experiment.runner import TrainRunner
 from gr00t.model.gr00t_n1 import GR00T_N1_5
 from gr00t.model.transforms import EMBODIMENT_TAG_MAPPING
 from gr00t.utils.peft import get_lora_model
 
+torch.multiprocessing.set_sharing_strategy('file_system')
 
 @dataclass
 class ArgsConfig:
     """Configuration for GR00T model fine-tuning."""
 
     # Dataset parameters
-    dataset_path: List[str]
-    """Path to the dataset directory or directories"""
+    # dataset_path: List[str]
+    """Path to the dataset directory or directories, we assume all datasets have the same data config"""
 
     output_dir: str = "/tmp/gr00t"
     """Directory to save model checkpoints."""
 
-    data_config: Literal[tuple(DATA_CONFIG_MAP.keys())] = "fourier_gr1_arms_only"
-    """Data configuration name from DATA_CONFIG_MAP, we assume all datasets have the same data config"""
+    data_config: str = "configs/base.yaml"
+    """
+    NOTE : jaehyun 
+    Use the config file instead of the data config name.
+    """
 
     # Training parameters
     batch_size: int = 32
@@ -76,6 +81,9 @@ class ArgsConfig:
     tune_diffusion_model: bool = True
     """Whether to fine-tune the diffusion model."""
 
+    random_diffusion: bool = False
+    """Whether to fine-tune the diffusion model."""
+
     resume: bool = False
     """Whether to resume from a checkpoint."""
 
@@ -101,18 +109,24 @@ class ArgsConfig:
     lora_full_model: bool = False
     """Whether to use the full model for LORA. If False, only the action head will be trained."""
 
-    dataloader_num_workers: int = 8
-    """Number of workers for data loading."""
+    dataloader_num_workers: int = 12
+    """Number of workers for data loading per GPU."""
 
-    report_to: Literal["wandb", "tensorboard"] = "wandb"
-    """Where to report training metrics (e.g., 'wandb', 'tensorboard')."""
+    gradient_accumulation_steps: int = 1
+    """Gradient accumulation steps for training."""
+
+    dataloader_prefetch_factor: int = 4
+    """Prefetch factor for data loading."""
+
+    report_to: Literal["wandb", "tensorboard", "azure_ml"] = "wandb"
+    """Where to report training metrics (e.g., 'wandb', 'tensorboard', 'azure_ml')."""
 
     # Data loading parameters
-    embodiment_tag: Literal[tuple(EMBODIMENT_TAG_MAPPING.keys())] = "new_embodiment"
+    # embodiment_tag: Literal[tuple(EMBODIMENT_TAG_MAPPING.keys())] = "new_embodiment"
     """Embodiment tag to use for training. e.g. 'new_embodiment', 'gr1'"""
 
-    video_backend: Literal["decord", "torchvision_av"] = "decord"
-    """Video backend to use for training. [decord, torchvision_av]"""
+    video_backend: Literal["torchcodec", "decord", "torchvision_av"] = "torchvision_av"
+    """Video backend to use for training. [torchcodec, decord, torchvision_av]"""
 
     # Mixture dataset parameters
     balance_dataset_weights: bool = True
@@ -121,6 +135,62 @@ class ArgsConfig:
     # Mixture dataset parameters
     balance_trajectory_weights: bool = True
     """Used in LeRobotMixtureDataset. If True, sample trajectories within a dataset weighted by their length; otherwise, equal weighting."""
+
+def _copy_partial_action_expert_weights(old_dict, new_dict, old_dim, new_dim):
+    """
+    Copy weights with partial dimension matching for action_dim changes.
+    TODO: YL experimentation
+    """
+    total_params = copied_params = random_params = 0
+
+    def update_stats(old_tensor, new_tensor, copied_all=True):
+        nonlocal total_params, copied_params, random_params
+        total_params += new_tensor.numel()
+        if copied_all:
+            copied_params += new_tensor.numel()
+        else:
+            copied_params += old_tensor.numel()
+            random_params += new_tensor.numel() - old_tensor.numel()
+
+    def copy_last_dim(new_tensor, old_tensor, old_dim):
+        """Copy first old_dim elements of last dimension."""
+        if old_tensor.dim() == 1:
+            new_tensor[:old_dim] = old_tensor
+        elif old_tensor.dim() == 2:
+            new_tensor[:, :old_dim] = old_tensor
+        elif old_tensor.dim() == 3:
+            new_tensor[:, :, :old_dim] = old_tensor
+
+    for key, old_tensor in old_dict.items():
+        if key not in new_dict:
+            continue
+
+        new_tensor = new_dict[key]
+
+        if old_tensor.shape == new_tensor.shape:
+            # Same shape: direct copy
+            new_tensor.copy_(old_tensor)
+            update_stats(old_tensor, new_tensor, copied_all=True)
+        elif "action_encoder" in key and "W1.weight" in key:
+            # Input dimension change: copy [:, :old_dim]
+            new_tensor[:, :old_dim] = old_tensor
+            update_stats(old_tensor, new_tensor, copied_all=False)
+        elif "action_decoder" in key and ("weight" in key or "bias" in key):
+            # Output dimension change: copy last dimension
+            copy_last_dim(new_tensor, old_tensor, old_dim)
+            update_stats(old_tensor, new_tensor, copied_all=False)
+        else:
+            # Incompatible: keep random initialization
+            total_params += new_tensor.numel()
+            random_params += new_tensor.numel()
+
+    assert total_params == copied_params + random_params, "Parameter count mismatch"
+    random_percentage = (random_params / total_params) * 100 if total_params > 0 else 0
+    print(
+        f"Weight copy stats: {copied_params:,} copied, {random_params:,} random ({random_percentage:.1f}% randomly initialized)"
+    )
+    print(f"Action dimensions {old_dim+1}-{new_dim} will be learned from scratch")
+    return new_dict
 
 
 #####################################################################################
@@ -131,41 +201,46 @@ class ArgsConfig:
 def main(config: ArgsConfig):
     """Main training function."""
     # ------------ step 1: load dataset ------------
-    embodiment_tag = EmbodimentTag(config.embodiment_tag)
 
-    # 1.1 modality configs and transforms
-    data_config_cls = DATA_CONFIG_MAP[config.data_config]
-    modality_configs = data_config_cls.modality_config()
-    transforms = data_config_cls.transform()
+    # read data config yaml
+    yaml_path = Path(__file__).resolve().parents[1] / config.data_config
+    assert yaml_path.exists(), f"Train YAML not found: {yaml_path}"
+    with open(yaml_path, "r") as f:
+        train_cfg = yaml.safe_load(f) or {}
 
-    # 1.2 data loader: we will use either single dataset or mixture dataset
-    if len(config.dataset_path) == 1:
-        train_dataset = LeRobotSingleDataset(
-            dataset_path=config.dataset_path[0],
-            modality_configs=modality_configs,
-            transforms=transforms,
-            embodiment_tag=embodiment_tag,  # This will override the dataset's embodiment tag to "new_embodiment"
+    ds_entries = (train_cfg.get("train") or {}).get("datasets") or []
+    assert len(ds_entries) > 0, "No datasets found in train.datasets"
+
+    dataset_paths = [str(e["path"]) for e in ds_entries]
+    data_configs = [str(e["data_config"]) for e in ds_entries]
+    dataset_sampling_weights = [float(e.get("weight", 1.0)) for e in ds_entries]
+    embodiment_tags = [str(e["embodiment_tag"]) for e in ds_entries]
+
+    data_config_cls = [load_data_config(config) for config in data_configs]
+    modality_configs = [config.modality_config() for config in data_config_cls]
+    transforms = [config.transform() for config in data_config_cls]
+
+    single_datasets = []
+    for dataset_idx, dataset_path in enumerate(dataset_paths):
+        assert os.path.exists(dataset_path), f"Dataset path {dataset_path} does not exist"
+        ## We use the same transforms, modality configs, and embodiment tag for all datasets here,
+        ## in reality, you can use dataset from different modalities and embodiment tags
+        dataset = LeRobotSingleDataset(
+            dataset_path=dataset_path,
+            modality_configs=modality_configs[dataset_idx],
+            transforms=transforms[dataset_idx],
+            embodiment_tag=embodiment_tags[dataset_idx],
             video_backend=config.video_backend,
         )
-    else:
-        single_datasets = []
-        for p in config.dataset_path:
-            assert os.path.exists(p), f"Dataset path {p} does not exist"
-            ## We use the same transforms, modality configs, and embodiment tag for all datasets here,
-            ## in reality, you can use dataset from different modalities and embodiment tags
-            dataset = LeRobotSingleDataset(
-                dataset_path=p,
-                modality_configs=modality_configs,
-                transforms=transforms,
-                embodiment_tag=embodiment_tag,
-                video_backend=config.video_backend,
-            )
-            single_datasets.append(dataset)
+        single_datasets.append(dataset)
 
+    if len(single_datasets) == 1:
+        train_dataset = single_datasets[0]
+    else:
         train_dataset = LeRobotMixtureDataset(
             data_mixture=[
-                (dataset, 1.0)  # we will use equal weights for all datasets
-                for dataset in single_datasets
+                (dataset, dataset_sampling_weights[dataset_idx])  # we will use equal weights for all datasets
+                for dataset_idx, dataset in enumerate(single_datasets)
             ],
             mode="train",
             balance_dataset_weights=config.balance_dataset_weights,
@@ -175,20 +250,143 @@ def main(config: ArgsConfig):
                 "percentile_mixing_method": "weighted_average",
             },
         )
-        print(f"Loaded {len(single_datasets)} datasets, with {config.dataset_path} ")
+    print(f"Loaded {len(single_datasets)} datasets.")
+
 
     # ------------ step 2: load model ------------
+    # First, get the data config to determine action horizon
+    data_action_horizon = len(data_config_cls[0].action_indices) # HACK : we assume all datasets have the same action horizon
+
+    # Extract max_action_dim from GR00TTransform in the data config
+    data_max_action_dim = -1
+    # Assert that the last transform is a GR00TTransform and has max_action_dim
+    assert (
+        hasattr(transforms[0], "transforms") and len(transforms[0].transforms) > 0
+    ), "No transforms found"
+    # last_transform = transforms[0].transforms[-1]
+    from gr00t.model.transforms import GR00TTransform
+    for trans in transforms:
+        last_transform = trans.transforms[-1]
+        assert isinstance(last_transform, GR00TTransform), "Last transform must be GR00TTransform"
+        assert hasattr(last_transform, "max_action_dim"), "GR00TTransform must have max_action_dim"
+        data_max_action_dim = max(data_max_action_dim, last_transform.max_action_dim)
+
+    # Unify: set all datasets' last GR00TTransform.max_action_dim to the global maximum to avoid collate errors
+    for trans in transforms:
+        last_transform = trans.transforms[-1]
+        if last_transform.max_action_dim != data_max_action_dim:
+            last_transform.max_action_dim = data_max_action_dim
+
+    # Validate: ensure all transforms now share the same max_action_dim
+    for trans in transforms:
+        assert (
+            trans.transforms[-1].max_action_dim == data_max_action_dim
+        ), f"Transform max_action_dim not unified: {trans.transforms[-1].max_action_dim} != {data_max_action_dim}"
+
+    # Load model
     model = GR00T_N1_5.from_pretrained(
         pretrained_model_name_or_path=config.base_model_path,
+        # action_dim=action_dim,
         tune_llm=config.tune_llm,  # backbone's LLM
         tune_visual=config.tune_visual,  # backbone's vision tower
         tune_projector=config.tune_projector,  # action head's projector
         tune_diffusion_model=config.tune_diffusion_model,  # action head's DiT
+        random_diffusion=config.random_diffusion, # diffusion from scratch
     )
 
+    # Update action_horizon and max_action_dim to match data config
+    # Need to recreate action head with correct config since it was initialized with old config
+    action_horizon_mismatch = data_action_horizon != model.action_head.config.action_horizon
+    action_dim_mismatch = data_max_action_dim != model.action_head.config.action_dim
+
+    if action_horizon_mismatch or action_dim_mismatch:
+        # Store old values for logging
+        old_action_horizon = model.action_head.config.action_horizon
+        old_action_dim = model.action_head.config.action_dim
+
+        print(
+            f"Recreating action head with action_horizon {data_action_horizon} (was {old_action_horizon})"
+        )
+        if action_dim_mismatch:
+            print(f"Updating max_action_dim {data_max_action_dim} (was {old_action_dim})")
+
+    if action_horizon_mismatch or action_dim_mismatch:
+        # Store old values for logging
+        old_action_horizon = model.action_head.config.action_horizon
+        old_action_dim = model.action_head.config.action_dim
+        print(
+            f"Recreating action head with action_horizon {data_action_horizon} (was {old_action_horizon})"
+        )
+        if action_dim_mismatch:
+            print(f"Updating max_action_dim {data_max_action_dim} (was {old_action_dim})")
+
+        # Update the action head config (need to copy to avoid modifying original)
+        import copy
+
+        new_action_head_config = copy.deepcopy(model.action_head.config)
+        new_action_head_config.action_horizon = data_action_horizon
+        new_action_head_config.action_dim = data_max_action_dim
+
+        # Import the FlowmatchingActionHead class
+        from gr00t.model.action_head.flow_matching_action_head import (
+            FlowmatchingActionHead,
+        )
+
+        # Create new action head with updated config
+        new_action_head = FlowmatchingActionHead(new_action_head_config)
+
+        # Copy the weights from the old action head to the new one
+        if not action_dim_mismatch:
+            print("Copying weights from old action head (compatible dimensions)")
+            new_action_head.load_state_dict(model.action_head.state_dict(), strict=False)
+        else:
+            print(
+                f"Partial weight copy: copying first {old_action_dim} dimensions, initializing last {data_max_action_dim - old_action_dim} dimensions randomly"
+            )
+            new_action_head.state_dict().update(
+                _copy_partial_action_expert_weights(
+                    model.action_head.state_dict(),
+                    new_action_head.state_dict(),
+                    old_action_dim,
+                    data_max_action_dim,
+                )
+            )
+
+        # Replace the action head
+        model.action_head = new_action_head
+
+        # Update model config AND the action_head_cfg dictionary that gets saved
+        model.config.action_horizon = data_action_horizon
+        model.action_horizon = data_action_horizon
+        model.config.action_head_cfg["action_horizon"] = data_action_horizon
+        model.config.action_head_cfg["action_dim"] = data_max_action_dim
+
+        # Update the main model's action_dim for validation (critical for validate_inputs)
+        model.config.action_dim = data_max_action_dim
+        model.action_dim = data_max_action_dim
+
+        # Set trainable parameters for the new action head
+        model.action_head.set_trainable_parameters(
+            tune_projector=config.tune_projector, tune_diffusion_model=config.tune_diffusion_model
+        )
+        
     # Set the model's compute_dtype to bfloat16
     model.compute_dtype = "bfloat16"
     model.config.compute_dtype = "bfloat16"
+
+    # Initialize newly added parameters with smaller values to prevent gradient explosion
+    # Target specific layers that were resized due to action_dim change
+    with torch.no_grad():
+        # Initialize action encoder W1 layer
+        if hasattr(model.action_head.action_encoder, 'W1') and hasattr(model.action_head.action_encoder.W1, 'W'):
+            torch.nn.init.normal_(model.action_head.action_encoder.W1.W, mean=0.0, std=0.01)
+        
+        # Initialize action decoder layer2
+        if hasattr(model.action_head.action_decoder, 'layer2'):
+            if hasattr(model.action_head.action_decoder.layer2, 'W'):
+                torch.nn.init.normal_(model.action_head.action_decoder.layer2.W, mean=0.0, std=0.01)
+            if hasattr(model.action_head.action_decoder.layer2, 'b'):
+                torch.nn.init.zeros_(model.action_head.action_decoder.layer2.b)
 
     if config.lora_rank > 0:
         model = get_lora_model(
@@ -202,16 +400,17 @@ def main(config: ArgsConfig):
     # 2.1 modify training args
     training_args = TrainingArguments(
         output_dir=config.output_dir,
-        run_name=None,
+        run_name=config.output_dir.split("/")[-1],
         remove_unused_columns=False,
         deepspeed="",
         gradient_checkpointing=False,
         bf16=True,
         tf32=True,
         per_device_train_batch_size=config.batch_size,
-        gradient_accumulation_steps=1,
+        gradient_accumulation_steps=config.gradient_accumulation_steps,
         dataloader_num_workers=config.dataloader_num_workers,
         dataloader_pin_memory=False,
+        dataloader_prefetch_factor=config.dataloader_prefetch_factor,
         dataloader_persistent_workers=config.dataloader_num_workers > 0,
         optim="adamw_torch",
         adam_beta1=0.95,
@@ -227,7 +426,7 @@ def main(config: ArgsConfig):
         save_strategy="steps",
         save_steps=config.save_steps,
         # evaluation_strategy="no",
-        save_total_limit=8,
+        save_total_limit=5,
         report_to=config.report_to,
         seed=42,
         do_eval=False,
@@ -281,36 +480,42 @@ if __name__ == "__main__":
             # Multi-GPU mode - use torchrun
             script_path = Path(__file__).absolute()
             # Remove any existing CUDA_VISIBLE_DEVICES from environment
-            if "CUDA_VISIBLE_DEVICES" in os.environ:
-                del os.environ["CUDA_VISIBLE_DEVICES"]
+            # if "CUDA_VISIBLE_DEVICES" in os.environ:
+                # del os.environ["CUDA_VISIBLE_DEVICES"]
+
+            script_path = Path(__file__).absolute()
+
+            script_path = Path(__file__).absolute()
 
             # Use subprocess.run instead of os.system
+            raw_args_list = sys.argv[1:]
             cmd = [
                 "torchrun",
                 "--standalone",
                 f"--nproc_per_node={config.num_gpus}",
                 "--nnodes=1",  # default to 1 node for now
                 str(script_path),
+                *raw_args_list,
             ]
 
-            # Convert config to command line arguments
-            for key, value in vars(config).items():
-                if isinstance(value, bool):
-                    # For boolean values, use --flag or --no-flag format
-                    if value:
-                        cmd.append(f"--{key.replace('_', '-')}")
-                    else:
-                        cmd.append(f"--no-{key.replace('_', '-')}")
-                else:
-                    # For non-boolean values, use --key value format
-                    cmd.append(f"--{key.replace('_', '-')}")
+            # master_addr = os.environ.get("MASTER_ADDR", "127.0.0.1")
+            # master_port = os.environ.get("MASTER_PORT", "29400")
+            # print(f"MASTER_ADDR: {master_addr}")
+            # print(f"MASTER_PORT: {master_port}")
 
-                    # if the value is a list (e.g. dataset_path), we need to add each element in the list
-                    if isinstance(value, list):
-                        for v in value:
-                            cmd.append(str(v))
-                    else:
-                        cmd.append(str(value))
+            # cmd = [
+            #     "torchrun",
+            #     # "--standalone",
+            #     f"--nproc_per_node={config.num_gpus}",
+            #     "--nnodes=2",  # default to 1 node for now
+            #     "--rdzv_backend=c10d", \
+            #     f"--rdzv_endpoint={master_addr}:{master_port}", \
+            #     "--rdzv_id=gr00t_multinode_test", \
+            #     "--max_restarts=3", \
+            #     str(script_path),
+            #     *raw_args_list,
+            # ]
+
             print("Running torchrun command: ", cmd)
             env = os.environ.copy()
             env["IS_TORCHRUN"] = "1"

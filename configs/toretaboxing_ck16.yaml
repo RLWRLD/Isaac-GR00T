@@ -1,0 +1,6 @@
+train:
+  datasets:
+    - path: /rlwrld/jaehyun/datasets/real_allex/20251120_182137_toretaboxing_lerobot
+      embodiment_tag: new_embodiment
+      data_config: allex_thetwo_46_ck16_egostereo
+      weight: 1.0

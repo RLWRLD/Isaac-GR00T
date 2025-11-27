@@ -27,7 +27,7 @@ import robosuite  # noqa: F401
 from robocasa.utils.gym_utils import GrootRoboCasaEnv  # noqa: F401
 
 from gr00t.data.dataset import ModalityConfig
-from gr00t.eval.service import BaseInferenceClient
+from gr00t.eval.robot import RobotInferenceClient
 from gr00t.eval.wrappers.multistep_wrapper import MultiStepWrapper
 from gr00t.eval.wrappers.video_recording_wrapper import (
     VideoRecorder,
@@ -76,13 +76,12 @@ class SimulationConfig:
     video: VideoConfig = field(default_factory=VideoConfig)
     multistep: MultiStepConfig = field(default_factory=MultiStepConfig)
 
-
-class SimulationInferenceClient(BaseInferenceClient, BasePolicy):
+class SimulationInferenceClient(BasePolicy):
     """Client for running simulations and communicating with the inference server."""
 
     def __init__(self, host: str = "localhost", port: int = 5555):
         """Initialize the simulation client with server connection details."""
-        super().__init__(host=host, port=port)
+        self.client = RobotInferenceClient(host=host, port=port)
         self.env = None
 
     def get_action(self, observations: Dict[str, Any]) -> Dict[str, Any]:
@@ -93,11 +92,25 @@ class SimulationInferenceClient(BaseInferenceClient, BasePolicy):
             observations["video.ego_view"] = observations.pop(
                 "video.ego_view_bg_crop_pad_res256_freq20"
             )
-        return self.call_endpoint("get_action", observations)
+        return self.client.get_action(observations)
 
     def get_modality_config(self) -> Dict[str, ModalityConfig]:
         """Get modality configuration from the inference server."""
-        return self.call_endpoint("get_modality_config", requires_input=False)
+        return self.client.get_modality_config()
+
+    # def setup_environment(self, config: SimulationConfig) -> gym.vector.VectorEnv:
+    #     """Set up the simulation environment based on the provided configuration."""
+    #     # Create environment functions for each parallel environment
+    #     env_fns = [partial(_create_single_env, config=config, idx=i) for i in range(config.n_envs)]
+    #     # Create vector environment (sync for single env, async for multiple)
+    #     if config.n_envs == 1:
+    #         return gym.vector.SyncVectorEnv(env_fns)
+    #     else:
+    #         return gym.vector.AsyncVectorEnv(
+    #             env_fns,
+    #             shared_memory=False,
+    #             context="spawn",
+    #         )
 
     def setup_environment(self, config: SimulationConfig) -> gym.vector.VectorEnv:
         """Set up the simulation environment based on the provided configuration."""
@@ -130,6 +143,7 @@ class SimulationInferenceClient(BaseInferenceClient, BasePolicy):
         episode_successes = []
         # Initial environment reset
         obs, _ = self.env.reset()
+        # print (info)
         # Main simulation loop
         while completed_episodes < config.n_episodes:
             # Process observations and get actions from the server
@@ -150,6 +164,7 @@ class SimulationInferenceClient(BaseInferenceClient, BasePolicy):
                     # Reset trackers for this environment
                     current_rewards[env_idx] = 0
                     current_lengths[env_idx] = 0
+                    # obs, _ = self.env.reset(seed=42)
             obs = next_obs
         # Clean up
         self.env.reset()
@@ -176,10 +191,41 @@ class SimulationInferenceClient(BaseInferenceClient, BasePolicy):
         return actions
 
 
+# def _create_single_env(config: SimulationConfig, idx: int) -> gym.Env:
+#     """Create a single environment with appropriate wrappers."""
+#     # Create base environment
+#     env = gym.make(config.env_name, enable_render=True)
+#     # Add video recording wrapper if needed (only for the first environment)
+#     if config.video.video_dir is not None:
+#         video_recorder = VideoRecorder.create_h264(
+#             fps=config.video.fps,
+#             codec=config.video.codec,
+#             input_pix_fmt=config.video.input_pix_fmt,
+#             crf=config.video.crf,
+#             thread_type=config.video.thread_type,
+#             thread_count=config.video.thread_count,
+#         )
+#         env = VideoRecordingWrapper(
+#             env,
+#             video_recorder,
+#             video_dir=Path(config.video.video_dir),
+#             steps_per_render=config.video.steps_per_render,
+#         )
+#     # Add multi-step wrapper
+#     env = MultiStepWrapper(
+#         env,
+#         video_delta_indices=config.multistep.video_delta_indices,
+#         state_delta_indices=config.multistep.state_delta_indices,
+#         n_action_steps=config.multistep.n_action_steps,
+#         max_episode_steps=config.multistep.max_episode_steps,
+#     )
+#     return env
+
 def _create_single_env(config: SimulationConfig, idx: int) -> gym.Env:
     """Create a single environment with appropriate wrappers."""
     # Create base environment
-    env = gym.make(config.env_name, enable_render=True)
+    env = gym.make(config.env_name, enable_render=True, seed=42+idx) # jaehyun : different seed for each environment
+    print("==============SEED INITIALIZED==============")
     # Add video recording wrapper if needed (only for the first environment)
     if config.video.video_dir is not None:
         video_recorder = VideoRecorder.create_h264(
