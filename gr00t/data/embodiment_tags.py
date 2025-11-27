@@ -42,7 +42,6 @@ class EmbodimentTag(Enum):
     Any new embodiment for finetuning.
     """
 
-
 # Embodiment tag string: to projector index in the Action Expert Module
 EMBODIMENT_TAG_MAPPING = {
     EmbodimentTag.NEW_EMBODIMENT.value: 31,

@@ -4635,6 +4635,169 @@ class allex_thetwo_46_ck16_egostereo_history_config(BaseDataConfig):
         return ComposedModalityTransform(transforms=transforms)
 #######################
 
+class AgibotBetaDataConfig(BaseDataConfig):
+    video_keys = [
+        "video.top_head",
+    ]
+    state_keys = [
+        "state.left_arm_joint_position",
+        "state.right_arm_joint_position",
+        "state.left_effector_position",
+        "state.right_effector_position",
+        "state.head_position",
+        "state.waist_position",
+    ]
+    action_keys = [
+        "action.left_arm_joint_position",
+        "action.right_arm_joint_position",
+        "action.left_effector_position",
+        "action.right_effector_position",
+        "action.head_position",
+        "action.waist_position",
+    ]
+    language_keys = ["annotation.language.action_text"]
+    observation_indices = [0]
+    action_indices = list(range(16))
+
+    def transform(self):
+        transforms = [
+            # video transforms
+            VideoToTensor(apply_to=self.video_keys),
+            VideoCrop(apply_to=self.video_keys, scale=0.95),
+            VideoResize(apply_to=self.video_keys, height=224, width=224, interpolation="linear"),
+            VideoColorJitter(
+                apply_to=self.video_keys,
+                brightness=0.3,
+                contrast=0.4,
+                saturation=0.5,
+                hue=0.08,
+            ),
+            VideoToNumpy(apply_to=self.video_keys),
+            # state transforms
+            StateActionToTensor(apply_to=self.state_keys),
+            StateActionTransform(
+                apply_to=self.state_keys,
+                normalization_modes={key: "min_max" for key in self.state_keys},
+            ),
+            # action transforms
+            StateActionToTensor(apply_to=self.action_keys),
+            StateActionTransform(
+                apply_to=self.action_keys,
+                normalization_modes={key: "min_max" for key in self.action_keys},
+            ),
+            # concat transforms
+            ConcatTransform(
+                video_concat_order=self.video_keys,
+                state_concat_order=self.state_keys,
+                action_concat_order=self.action_keys,
+            ),
+            GR00TTransform(
+                state_horizon=len(self.observation_indices),
+                action_horizon=len(self.action_indices),
+                max_state_dim=64,
+                max_action_dim=32,
+            ),
+        ]
+
+        return ComposedModalityTransform(transforms=transforms)
+
+
+class egodex_naive_config(BaseDataConfig):
+    video_keys = ["video.camera"]
+    state_keys = [
+        "state.left_hand",
+        "state.left_hand_rotation",
+        "state.left_hand_fingertips",
+        "state.right_hand",
+        "state.right_hand_rotation",
+        "state.right_hand_fingertips",
+    ]
+    action_keys = [
+        "action.left_hand",
+        "action.left_hand_rotation",
+        "action.left_hand_fingertips",
+        "action.right_hand",
+        "action.right_hand_rotation",
+        "action.right_hand_fingertips",
+    ]
+    language_keys = ["annotation.language_instruction"]
+    observation_indices = [0]
+    action_indices = list(range(16))
+    action_dim = 48
+
+    def modality_config(self) -> dict[str, ModalityConfig]:
+        video_modality = ModalityConfig(
+            delta_indices=self.observation_indices,
+            modality_keys=self.video_keys,
+        )
+
+        state_modality = ModalityConfig(
+            delta_indices=self.observation_indices,
+            modality_keys=self.state_keys,
+        )
+
+        action_modality = ModalityConfig(
+            delta_indices=self.action_indices,
+            modality_keys=self.action_keys,
+        )
+
+        language_modality = ModalityConfig(
+            delta_indices=self.observation_indices,
+            modality_keys=self.language_keys,
+        )
+
+        modality_configs = {
+            "video": video_modality,
+            "state": state_modality,
+            "action": action_modality,
+            "language": language_modality,
+        }
+
+        return modality_configs
+
+    def transform(self) -> ModalityTransform:
+        transforms = [
+            # video transforms
+            VideoToTensor(apply_to=self.video_keys),
+            VideoCrop(apply_to=self.video_keys, scale=0.95),
+            VideoResize(apply_to=self.video_keys, height=224, width=224, interpolation="linear"),
+            VideoColorJitter(
+                apply_to=self.video_keys,
+                brightness=0.2,
+                contrast=0.2,
+                saturation=0.1,
+                hue=0.0,
+            ),
+            VideoToNumpy(apply_to=self.video_keys),
+            # state transforms
+            StateActionToTensor(apply_to=self.state_keys),
+            StateActionTransform(
+                apply_to=self.state_keys,
+                normalization_modes={key: "q99" for key in self.state_keys},
+            ),
+            # action transforms
+            StateActionToTensor(apply_to=self.action_keys),
+            StateActionTransform(
+                apply_to=self.action_keys,
+                normalization_modes={key: "q99" for key in self.action_keys},
+            ),
+            # concat transforms
+            ConcatTransform(
+                video_concat_order=self.video_keys,
+                state_concat_order=self.state_keys,
+                action_concat_order=self.action_keys,
+            ),
+            # model-specific transform
+            GR00TTransform(
+                state_horizon=len(self.observation_indices),
+                action_horizon=len(self.action_indices),
+                max_state_dim=64,
+                max_action_dim=self.action_dim,
+                
+            ),
+        ]
+        return ComposedModalityTransform(transforms=transforms)
+
 ###########################################################################################
 
 DATA_CONFIG_MAP = {
@@ -4700,4 +4863,5 @@ DATA_CONFIG_MAP = {
     "egodex_naive": egodex_naive_config(),
     "egodex_mano": egodex_mano_config(),
     "agibot_naive": agibot_naive_config(),
+    "agibot_beta1": AgibotBetaDataConfig(),
 }

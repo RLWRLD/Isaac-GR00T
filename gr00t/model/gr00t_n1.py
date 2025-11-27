@@ -204,12 +204,14 @@ class GR00T_N1_5(PreTrainedModel):
         tune_llm = kwargs.pop("tune_llm", False)
         tune_projector = kwargs.pop("tune_projector", True)
         tune_diffusion_model = kwargs.pop("tune_diffusion_model", True)
+        random_diffusion = kwargs.pop("random_diffusion", False)
 
         print(f"Loading pretrained dual brain from {pretrained_model_name_or_path}")
         print(f"Tune backbone vision tower: {tune_visual}")
         print(f"Tune backbone LLM: {tune_llm}")
         print(f"Tune action head projector: {tune_projector}")
         print(f"Tune action head DiT: {tune_diffusion_model}")
+        print(f"Random diffusion weights: {random_diffusion}")
 
         # get the current model path being downloaded
         try:
@@ -226,6 +228,9 @@ class GR00T_N1_5(PreTrainedModel):
         pretrained_model = super().from_pretrained(
             local_model_path, local_model_path=local_model_path, **kwargs
         )
+        if random_diffusion:
+                action_head_cfg = FlowmatchingActionHeadConfig(**pretrained_model.config.action_head_cfg)
+                pretrained_model.action_head = FlowmatchingActionHead(action_head_cfg)
 
         pretrained_model.backbone.set_trainable_parameters(
             tune_visual=tune_visual, tune_llm=tune_llm

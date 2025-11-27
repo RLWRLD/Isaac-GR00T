@@ -81,6 +81,9 @@ class ArgsConfig:
     tune_diffusion_model: bool = True
     """Whether to fine-tune the diffusion model."""
 
+    random_diffusion: bool = False
+    """Whether to fine-tune the diffusion model."""
+
     resume: bool = False
     """Whether to resume from a checkpoint."""
 
@@ -122,7 +125,7 @@ class ArgsConfig:
     # embodiment_tag: Literal[tuple(EMBODIMENT_TAG_MAPPING.keys())] = "new_embodiment"
     """Embodiment tag to use for training. e.g. 'new_embodiment', 'gr1'"""
 
-    video_backend: Literal["torchcodec", "decord", "torchvision_av"] = "torchcodec"
+    video_backend: Literal["torchcodec", "decord", "torchvision_av"] = "torchvision_av"
     """Video backend to use for training. [torchcodec, decord, torchvision_av]"""
 
     # Mixture dataset parameters
@@ -132,10 +135,6 @@ class ArgsConfig:
     # Mixture dataset parameters
     balance_trajectory_weights: bool = True
     """Used in LeRobotMixtureDataset. If True, sample trajectories within a dataset weighted by their length; otherwise, equal weighting."""
-
-    # Jaehyun NOTE : for initializing flowmatching action head from scratch.
-    # We train from scratch to remove the effect from gr00t's pretrained knowledge regarding gr1 embodiment.
-    action_head_from_scratch: bool = False
 
 def _copy_partial_action_expert_weights(old_dict, new_dict, old_dim, new_dim):
     """
@@ -292,7 +291,7 @@ def main(config: ArgsConfig):
         tune_visual=config.tune_visual,  # backbone's vision tower
         tune_projector=config.tune_projector,  # action head's projector
         tune_diffusion_model=config.tune_diffusion_model,  # action head's DiT
-        ignore_mismatched_sizes=True,
+        random_diffusion=config.random_diffusion, # diffusion from scratch
     )
 
     # Update action_horizon and max_action_dim to match data config
@@ -370,25 +369,6 @@ def main(config: ArgsConfig):
         model.action_head.set_trainable_parameters(
             tune_projector=config.tune_projector, tune_diffusion_model=config.tune_diffusion_model
         )
-
-    # Jaehyun NOTE : for initializing flowmatching action head from scratch.
-    # We train from scratch to remove the effect from gr00t's pretrained knowledge regarding gr1 embodiment.
-    if config.action_head_from_scratch:
-        # Import the FlowmatchingActionHead class
-        from gr00t.model.action_head.flow_matching_action_head import (
-            FlowmatchingActionHead,
-        )
-
-        print(
-            "\033[93mJaehyun: Initializing flowmatching action head from scratch\033[0m"
-        )
-        import copy
-        new_action_head_config = copy.deepcopy(model.action_head.config)
-        new_action_head_config.action_horizon = data_action_horizon
-        new_action_head_config.action_dim = data_max_action_dim
-
-        new_action_head = FlowmatchingActionHead(new_action_head_config)
-        model.action_head = new_action_head
         
     # Set the model's compute_dtype to bfloat16
     model.compute_dtype = "bfloat16"
