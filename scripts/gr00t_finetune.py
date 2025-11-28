@@ -125,7 +125,7 @@ class ArgsConfig:
     # embodiment_tag: Literal[tuple(EMBODIMENT_TAG_MAPPING.keys())] = "new_embodiment"
     """Embodiment tag to use for training. e.g. 'new_embodiment', 'gr1'"""
 
-    video_backend: Literal["torchcodec", "decord", "torchvision_av"] = "torchvision_av"
+    video_backend: Literal["torchcodec", "decord", "torchvision_av"] = "torchcodec"
     """Video backend to use for training. [torchcodec, decord, torchvision_av]"""
 
     # Mixture dataset parameters
