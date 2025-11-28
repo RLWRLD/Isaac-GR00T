@@ -18,7 +18,7 @@ import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Literal
+from typing import List, Literal, Optional
 
 import torch
 import yaml
@@ -135,6 +135,16 @@ class ArgsConfig:
     # Mixture dataset parameters
     balance_trajectory_weights: bool = True
     """Used in LeRobotMixtureDataset. If True, sample trajectories within a dataset weighted by their length; otherwise, equal weighting."""
+
+    # Seungcheol NOTE: Arguments for deepspeed training & acceleration
+    # To use pin memory for accelerate data movement from CPU to GPU
+    pin_memory: bool = False
+
+    # logging steps
+    logging_steps: int = 10.0
+
+    # Torch compile mode training acceleration
+    torch_compile_mode: Optional[str] = None
 
 def _copy_partial_action_expert_weights(old_dict, new_dict, old_dim, new_dim):
     """
@@ -397,19 +407,30 @@ def main(config: ArgsConfig):
             action_head_only=not config.lora_full_model,
         )
 
+    # Seungcheol NOTE: Control reporting process to wandb/tensorboard from only the main process (rank 0)"
+    # Check if we're in distributed training and get the rank
+    is_main_process = True
+    if torch.distributed.is_available() and torch.distributed.is_initialized():
+        is_main_process = torch.distributed.get_rank() == 0
+    
+    # Only report to wandb/tensorboard from the main process (rank 0)
+    report_to_value = config.report_to if is_main_process else "none"
+    if not is_main_process:
+        print(f"[Rank {torch.distributed.get_rank()}] Logging disabled - only main process logs to {config.report_to}")
+
     # 2.1 modify training args
     training_args = TrainingArguments(
         output_dir=config.output_dir,
         run_name=config.output_dir.split("/")[-1],
         remove_unused_columns=False,
-        deepspeed="",
+        deepspeed=config.deepspeed_config,
         gradient_checkpointing=False,
         bf16=True,
         tf32=True,
         per_device_train_batch_size=config.batch_size,
         gradient_accumulation_steps=config.gradient_accumulation_steps,
         dataloader_num_workers=config.dataloader_num_workers,
-        dataloader_pin_memory=False,
+        dataloader_pin_memory=config.pin_memory,
         dataloader_prefetch_factor=config.dataloader_prefetch_factor,
         dataloader_persistent_workers=config.dataloader_num_workers > 0,
         optim="adamw_torch",
@@ -420,19 +441,19 @@ def main(config: ArgsConfig):
         weight_decay=config.weight_decay,
         warmup_ratio=config.warmup_ratio,
         lr_scheduler_type="cosine",
-        logging_steps=10.0,
+        logging_steps=config.logging_steps,
         num_train_epochs=300,
         max_steps=config.max_steps,
         save_strategy="steps",
         save_steps=config.save_steps,
         # evaluation_strategy="no",
         save_total_limit=5,
-        report_to=config.report_to,
+        report_to=report_to_value,
         seed=42,
         do_eval=False,
         ddp_find_unused_parameters=False,
         ddp_bucket_cap_mb=100,
-        torch_compile_mode=None,
+        torch_compile_mode=config.torch_compile_mode,
     )
 
     # 2.2 run experiment
