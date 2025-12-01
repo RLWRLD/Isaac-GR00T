@@ -765,6 +765,8 @@ class LeRobotSingleDataset(Dataset):
         # print(f"{step_indices=}")
         # Get the trajectory index
         trajectory_index = self.get_trajectory_index(trajectory_id)
+        if (np.min(step_indices) < 0):
+            step_indices = step_indices - np.min(step_indices)
         # Ensure the indices are within the valid range
         # This is equivalent to padding the video with extra frames at the beginning and end
         step_indices = np.maximum(step_indices, 0)
