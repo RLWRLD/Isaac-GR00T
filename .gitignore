@@ -91,7 +91,7 @@ captioner/
 hostfile
 *_dev.py
 *_dev.sh
-
+slurm_out/
 
 # Python
 __pycache__
