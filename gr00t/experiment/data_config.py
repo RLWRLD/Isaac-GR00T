@@ -4557,13 +4557,13 @@ class allex_thetwo_46_ck16_egostereo_history_config(BaseDataConfig):
         "action.neck_joints",
     ]
     language_keys = ["annotation.human.task_description"]
-    observation_indices = [-10, 0]
+    observation_indices = [0]
     action_indices = list(range(16))
     action_dim = 46
 
     def modality_config(self) -> dict[str, ModalityConfig]:
         video_modality = ModalityConfig(
-            delta_indices=self.observation_indices,
+            delta_indices=[-3, -2, -1, 0],
             modality_keys=self.video_keys,
         )
 
