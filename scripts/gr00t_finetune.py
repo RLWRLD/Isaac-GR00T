@@ -33,6 +33,8 @@ from gr00t.model.gr00t_n1 import GR00T_N1_5
 from gr00t.model.transforms import EMBODIMENT_TAG_MAPPING
 from gr00t.utils.peft import get_lora_model
 
+
+
 torch.multiprocessing.set_sharing_strategy('file_system')
 
 @dataclass
@@ -125,7 +127,7 @@ class ArgsConfig:
     # embodiment_tag: Literal[tuple(EMBODIMENT_TAG_MAPPING.keys())] = "new_embodiment"
     """Embodiment tag to use for training. e.g. 'new_embodiment', 'gr1'"""
 
-    video_backend: Literal["torchcodec", "decord", "torchvision_av"] = "torchcodec"
+    video_backend: Literal["torchcodec", "decord", "torchvision_av"] = "decord"
     """Video backend to use for training. [torchcodec, decord, torchvision_av]"""
 
     # Mixture dataset parameters
@@ -137,6 +139,14 @@ class ArgsConfig:
     """Used in LeRobotMixtureDataset. If True, sample trajectories within a dataset weighted by their length; otherwise, equal weighting."""
 
     # Seungcheol NOTE: Arguments for deepspeed training & acceleration
+    # DeepSpeed Config
+    deepspeed_config: str = ""
+    """Path to the DeepSpeed config file."""
+
+    # Local rank for DeepSpeed
+    local_rank: int = 0
+    """Local rank for DeepSpeed."""
+
     # To use pin memory for accelerate data movement from CPU to GPU
     pin_memory: bool = False
 
@@ -210,6 +220,16 @@ def _copy_partial_action_expert_weights(old_dict, new_dict, old_dim, new_dim):
 
 def main(config: ArgsConfig):
     """Main training function."""
+
+    # NOTE Seungcheol : Distributed training setup (# NOTE Seungcheol : Distributed training setup (
+    # Extending NCCL timeout to 2 hours)
+    import torch.distributed as dist
+    from datetime import timedelta
+
+    dist.init_process_group(
+        backend='nccl',
+        timeout=timedelta(hours=2)  # 기본 10분 → 2시간
+    )
     # ------------ step 1: load dataset ------------
 
     # read data config yaml

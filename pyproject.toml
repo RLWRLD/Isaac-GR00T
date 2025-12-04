@@ -52,6 +52,7 @@ dependencies = [
     "onnx==1.17.0",
     "tyro",
     "pytest",
+    "deepspeed==0.18.2"
 ]
 
 [project.optional-dependencies]
