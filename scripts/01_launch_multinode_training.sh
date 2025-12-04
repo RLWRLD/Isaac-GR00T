@@ -89,6 +89,7 @@ torchrun \
     --save-steps 2000 \
     --deepspeed_config $DEEPSPEED_CONFIG \
     --dataloader_num_workers 20 \
+    --video-backend torchcodec \
     --dataloader-prefetch-factor 12 \
     --pin_memory
 " 
