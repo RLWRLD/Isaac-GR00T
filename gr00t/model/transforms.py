@@ -210,6 +210,7 @@ class GR00TTransform(InvertibleModalityTransform):
         # Check if video exists, if not assume single batch
         if "video" in data:
             # Use video key to determine batch size.
+            # print (data["video"].shape)
             video_ndim = data["video"].ndim
             if video_ndim == 5:  # Interpret as [T, V, H, W, C]
                 is_batched = False
@@ -283,6 +284,7 @@ class GR00TTransform(InvertibleModalityTransform):
                 }
             ]
             image_inputs, video_inputs = self.eagle_processor.process_vision_info(eagle_conversation)
+
         else:
             # No images, only text
             eagle_conversation = [

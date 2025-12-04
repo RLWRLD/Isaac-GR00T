@@ -29,6 +29,7 @@ from .action_head.flow_matching_action_head import (
     FlowmatchingActionHeadConfig,
 )
 from .backbone import EagleBackbone
+import gr00t.model.backbone.eagle_backbone as eagle_backbone
 
 BACKBONE_FEATURE_KEY = "backbone_features"
 ACTION_KEY = "action_pred"
@@ -36,6 +37,10 @@ LOSS_KEY = "loss"
 ERROR_MSG = "Error: unexpected input/output"
 N_COLOR_CHANNELS = 3
 
+
+class IndexContext:
+    batch_indices: int
+    gather_indices: int
 
 # config
 @dataclass
@@ -49,6 +54,10 @@ class GR00T_N1_5_Config(PretrainedConfig):
 
     action_dim: int = field(init=False, metadata={"help": "Action dimension."})
     compute_dtype: str = field(default="float32", metadata={"help": "Compute dtype."})
+    internal_projection: int | None = field(default=None)
+    motion_token: int | None = field(default=None)
+    num_frames: int | None = field(default=None)
+    num_views: int | None = field(default=None)
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -77,11 +86,31 @@ class GR00T_N1_5(PreTrainedModel):
 
         super().__init__(config)
         self.local_model_path = local_model_path
+        internal_projection = getattr(config, "internal_projection", None)
 
         self.backbone = EagleBackbone(**config.backbone_cfg)
         config.action_head_cfg["action_dim"] = config.action_dim
         action_head_cfg = FlowmatchingActionHeadConfig(**config.action_head_cfg)
         self.action_head = FlowmatchingActionHead(action_head_cfg)
+
+        if internal_projection:
+            num_frames = getattr(config, "num_frames", 1)
+            num_views = getattr(config, "num_views", 1)
+            motion_token = getattr(config, "motion_token", 0)
+            index_context = IndexContext()
+
+            for layer_idx in range(len(self.backbone.eagle_model.language_model.model.layers)):
+                self.backbone.eagle_model.language_model.model.layers[layer_idx] = eagle_backbone.LayerWrapper(
+                    self.backbone.eagle_model.language_model.model.layers[layer_idx],
+                    layer_idx=layer_idx,
+                    internal_projection=internal_projection,
+                    num_frames=num_frames,
+                    num_views=num_views,
+                    index_context=index_context,
+                    img_pattern=[27, 1805, 220],
+                    motion_token=motion_token
+                )
+            self.backbone.internal_projection = internal_projection
 
         self.action_horizon = config.action_horizon
         self.action_dim = config.action_dim
@@ -225,12 +254,38 @@ class GR00T_N1_5(PreTrainedModel):
             )
             local_model_path = pretrained_model_name_or_path
 
+        internal_projection = kwargs.pop("internal_projection", None)
+        is_training = kwargs.pop("is_training", False)
+        num_frames = kwargs.pop("num_frames", 1)
+        num_views = kwargs.pop("num_views", 1)
+        motion_token = kwargs.pop("motion_token", 0)
+
         pretrained_model = super().from_pretrained(
             local_model_path, local_model_path=local_model_path, **kwargs
         )
         if random_diffusion:
                 action_head_cfg = FlowmatchingActionHeadConfig(**pretrained_model.config.action_head_cfg)
                 pretrained_model.action_head = FlowmatchingActionHead(action_head_cfg)
+
+        if internal_projection and is_training:
+            pretrained_model.config.internal_projection = internal_projection
+            pretrained_model.config.motion_token = motion_token
+            pretrained_model.config.num_frames = num_frames
+            pretrained_model.config.num_views = num_views
+            index_context = IndexContext()
+            for layer_idx in range(len(pretrained_model.backbone.eagle_model.language_model.model.layers)):
+                pretrained_model.backbone.eagle_model.language_model.model.layers[layer_idx] = eagle_backbone.LayerWrapper(
+                    pretrained_model.backbone.eagle_model.language_model.model.layers[layer_idx],
+                    layer_idx=layer_idx,
+                    internal_projection=internal_projection,
+                    num_frames=num_frames,
+                    num_views=num_views,
+                    index_context=index_context,
+                    img_pattern=[27, 1805, 220],
+                    motion_token=motion_token
+                )
+            pretrained_model.backbone.internal_projection = internal_projection
+
 
         pretrained_model.backbone.set_trainable_parameters(
             tune_visual=tune_visual, tune_llm=tune_llm
@@ -240,6 +295,43 @@ class GR00T_N1_5(PreTrainedModel):
         )
         return pretrained_model
 
+    @classmethod
+    def from_config(cls, config, **kwargs):
+        tune_visual = kwargs.pop("tune_visual", False)
+        tune_llm = kwargs.pop("tune_llm", False)
+        tune_projector = kwargs.pop("tune_projector", True)
+        tune_diffusion_model = kwargs.pop("tune_diffusion_model", True)
+        use_pretrained_diffusion = kwargs.pop("use_pretrained_diffusion", None)
+        internal_projection = kwargs.pop("internal_projection", None)
+        if internal_projection:
+            config.internal_projection = internal_projection
+        config.num_frames = kwargs.pop("num_frames", 1)
+        config.num_views = kwargs.pop("num_views", 1)
+        config.motion_token = kwargs.pop("motion_token", 0)
+        config.action_horizon = kwargs.pop("action_horizon", 64)   
+
+        print(f"Loading pretrained dual brain from config: {config}")
+        print(f"Tune backbone vision tower: {tune_visual}")
+        print(f"Tune backbone LLM: {tune_llm}")
+        print(f"Tune action head projector: {tune_projector}")
+        print(f"Tune action head DiT: {tune_diffusion_model}")
+        model = super()._from_config(config, **kwargs)
+
+        if use_pretrained_diffusion is not None:
+            raise NotImplementedError
+            pretrained_model = super().from_pretrained(
+                use_pretrained_diffusion, local_model_path=use_pretrained_diffusion, **kwargs
+            )
+            model.action_head = pretrained_model.action_head
+
+        model.backbone.set_trainable_parameters(
+            tune_visual=tune_visual, tune_llm=tune_llm
+        )
+        model.action_head.set_trainable_parameters(
+            tune_projector=tune_projector, tune_diffusion_model=tune_diffusion_model
+        )
+        
+        return model
 
 # register
 AutoConfig.register("gr00t_n1_5", GR00T_N1_5_Config)

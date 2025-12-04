@@ -65,6 +65,8 @@ class ArgsConfig:
     save_steps: int = 1000
     """Number of steps between saving checkpoints."""
 
+    num_frames: int = 1
+
     # Model parameters
     base_model_path: str = "nvidia/GR00T-N1.5-3B"
     """Path or HuggingFace model ID for the base model."""
@@ -135,6 +137,10 @@ class ArgsConfig:
     # Mixture dataset parameters
     balance_trajectory_weights: bool = True
     """Used in LeRobotMixtureDataset. If True, sample trajectories within a dataset weighted by their length; otherwise, equal weighting."""
+
+    internal_projection: int | None = None
+    motion_token: int = 0
+
 
 def _copy_partial_action_expert_weights(old_dict, new_dict, old_dim, new_dim):
     """
@@ -216,9 +222,10 @@ def main(config: ArgsConfig):
     dataset_sampling_weights = [float(e.get("weight", 1.0)) for e in ds_entries]
     embodiment_tags = [str(e["embodiment_tag"]) for e in ds_entries]
 
-    data_config_cls = [load_data_config(config) for config in data_configs]
-    modality_configs = [config.modality_config() for config in data_config_cls]
-    transforms = [config.transform() for config in data_config_cls]
+    data_config_cls = [load_data_config(config_name) for config_name in data_configs]
+    # print (data_config_cls)
+    modality_configs = [data_config.modality_config(num_frames=config.num_frames) for data_config in data_config_cls]
+    transforms = [data_config.transform() for data_config in data_config_cls]
 
     single_datasets = []
     for dataset_idx, dataset_path in enumerate(dataset_paths):
@@ -292,6 +299,11 @@ def main(config: ArgsConfig):
         tune_projector=config.tune_projector,  # action head's projector
         tune_diffusion_model=config.tune_diffusion_model,  # action head's DiT
         random_diffusion=config.random_diffusion, # diffusion from scratch
+        internal_projection=config.internal_projection,
+        is_training=True,
+        num_frames=config.num_frames,
+        num_views = len(data_config_cls[0].video_keys),
+        motion_token=config.motion_token,
     )
 
     # Update action_horizon and max_action_dim to match data config

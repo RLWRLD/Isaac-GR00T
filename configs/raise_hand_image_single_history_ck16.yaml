@@ -2,5 +2,5 @@ train:
   datasets:
     - path: /workspace/project/heeseung_datasets/20251127_163329_raisearm_lerobot
       embodiment_tag: new_embodiment
-      data_config: allex_thetwo_46_ck16_egosingle_history
+      data_config: allex_thetwo_46_ck16_egosingle_history_multi_frame
       weight: 1.0

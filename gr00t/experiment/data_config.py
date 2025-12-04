@@ -4824,6 +4824,102 @@ class allex_thetwo_46_ck16_egostereo_history_4imgs_config(BaseDataConfig):
         return ComposedModalityTransform(transforms=transforms)
 #######################
 
+class allex_thetwo_46_ck16_egostereo_history_multi_frame_config(BaseDataConfig):
+    video_keys = ["video.camera_ego_left", "video.camera_ego_right"]
+    state_keys = [
+        "state.right_arm_joints",
+        "state.left_arm_joints",
+        "state.right_hand_joints",
+        "state.left_hand_joints",
+        "state.neck_joints",
+    ]
+    action_keys = [
+        "action.right_arm_joints",
+        "action.left_arm_joints",
+        "action.right_finger_joints",
+        "action.left_finger_joints",
+        "action.neck_joints",
+    ]
+    language_keys = ["annotation.human.task_description"]
+    observation_indices = [0]
+    action_indices = list(range(16))
+    action_dim = 46
+
+    def modality_config(self, num_frames=1):
+        video_modality = ModalityConfig(
+            delta_indices=[-1 * num_frames + 1 + i for i in range(num_frames)],
+            modality_keys=self.video_keys,
+        )
+
+        state_modality = ModalityConfig(
+            delta_indices=self.observation_indices,
+            modality_keys=self.state_keys,
+        )
+
+        action_modality = ModalityConfig(
+            delta_indices=self.action_indices,
+            modality_keys=self.action_keys,
+        )
+
+        language_modality = ModalityConfig(
+            delta_indices=self.observation_indices,
+            modality_keys=self.language_keys,
+        )
+
+        modality_configs = {
+            "video": video_modality,
+            "state": state_modality,
+            "action": action_modality,
+            "language": language_modality,
+        }
+
+        return modality_configs
+
+    def transform(self) -> ModalityTransform:
+        transforms = [
+            # video transforms
+            VideoToTensor(apply_to=self.video_keys),
+            VideoCrop(apply_to=self.video_keys, scale=0.95),
+            VideoResize(apply_to=self.video_keys, height=224, width=224, interpolation="linear"),
+            VideoColorJitter(
+                apply_to=self.video_keys,
+                brightness=0.2,
+                contrast=0.2,
+                saturation=0.2,
+                hue=0.1,
+            ),
+            VideoToNumpy(apply_to=self.video_keys),
+            # state transforms
+            StateActionToTensor(apply_to=self.state_keys),
+            StateActionTransform(
+                apply_to=self.state_keys,
+                normalization_modes={key: "q99" for key in self.state_keys},
+            ),
+            # action transforms
+            StateActionToTensor(apply_to=self.action_keys),
+            StateActionTransform(
+                apply_to=self.action_keys,
+                normalization_modes={key: "q99" for key in self.action_keys},
+            ),
+            # concat transforms
+            ConcatTransform(
+                video_concat_order=self.video_keys,
+                state_concat_order=self.state_keys,
+                action_concat_order=self.action_keys,
+            ),
+            # model-specific transform
+            GR00TTransform(
+                state_horizon=len(self.observation_indices),
+                action_horizon=len(self.action_indices),
+                max_state_dim=64,
+                max_action_dim=self.action_dim,
+                
+            ),
+        ]
+        return ComposedModalityTransform(transforms=transforms)
+#######################
+
+
 class allex_thetwo_46_ck16_egostereo_history_config(BaseDataConfig):
     video_keys = ["video.camera_ego_left", "video.camera_ego_right"]
     state_keys = [
@@ -4920,7 +5016,7 @@ class allex_thetwo_46_ck16_egostereo_history_config(BaseDataConfig):
 #######################
 
 
-class allex_thetwo_46_ck16_egosingle_history_config(BaseDataConfig):
+class allex_thetwo_46_ck16_egosingle_history_multi_frame_config(BaseDataConfig):
     video_keys = ["video.camera_ego_left"]
     state_keys = [
         "state.right_arm_joints",
@@ -4941,9 +5037,9 @@ class allex_thetwo_46_ck16_egosingle_history_config(BaseDataConfig):
     action_indices = list(range(16))
     action_dim = 46
 
-    def modality_config(self) -> dict[str, ModalityConfig]:
+    def modality_config(self, num_frames=1):
         video_modality = ModalityConfig(
-            delta_indices=[-3, -2, -1, 0],
+            delta_indices=[-1 * num_frames + 1 + i for i in range(num_frames)],
             modality_keys=self.video_keys,
         )
 
@@ -5241,7 +5337,8 @@ DATA_CONFIG_MAP = {
     "allex_thetwo_46_ck16_egostereo": allex_thetwo_46_ck16_egostereo_config(),
     "allex_thetwo_46_ck16_egostereo_history": allex_thetwo_46_ck16_egostereo_history_config(),
     "allex_thetwo_46_ck16_egostereo_history_4imgs": allex_thetwo_46_ck16_egostereo_history_4imgs_config(),
-    "allex_thetwo_46_ck16_egosingle_history": allex_thetwo_46_ck16_egosingle_history_config(),
+    "allex_thetwo_46_ck16_egostereo_history_multi_frame": allex_thetwo_46_ck16_egostereo_history_multi_frame_config(),
+    "allex_thetwo_46_ck16_egosingle_history_multi_frame": allex_thetwo_46_ck16_egosingle_history_multi_frame_config(),
 
     "egodex_naive": egodex_naive_config(),
     "egodex_mano": egodex_mano_config(),
