@@ -32,6 +32,7 @@ from gr00t.experiment.runner import TrainRunner
 from gr00t.model.gr00t_n1 import GR00T_N1_5
 from gr00t.model.transforms import EMBODIMENT_TAG_MAPPING
 from gr00t.utils.peft import get_lora_model
+from gr00t.utils.distributed_logging import setup_distributed_logger, print_all_ranks
 
 
 
@@ -206,10 +207,11 @@ def _copy_partial_action_expert_weights(old_dict, new_dict, old_dim, new_dim):
 
     assert total_params == copied_params + random_params, "Parameter count mismatch"
     random_percentage = (random_params / total_params) * 100 if total_params > 0 else 0
-    print(
+    # Use print_all_ranks here since this function can be called before logger is setup
+    print_all_ranks(
         f"Weight copy stats: {copied_params:,} copied, {random_params:,} random ({random_percentage:.1f}% randomly initialized)"
     )
-    print(f"Action dimensions {old_dim+1}-{new_dim} will be learned from scratch")
+    print_all_ranks(f"Action dimensions {old_dim+1}-{new_dim} will be learned from scratch")
     return new_dict
 
 
@@ -230,6 +232,15 @@ def main(config: ArgsConfig):
         backend='nccl',
         timeout=timedelta(hours=2)  # 기본 10분 → 2시간
     )
+    
+    # Setup distributed logger - logs from ALL ranks with rank information
+    logger = setup_distributed_logger(
+        name="gr00t_finetune",
+        log_file=os.path.join(config.output_dir, "logs","training.log"),
+        level="INFO",
+        log_all_ranks=True  # Enable logging from all ranks with rank prefix
+    )
+    
     # ------------ step 1: load dataset ------------
 
     # read data config yaml
@@ -280,7 +291,7 @@ def main(config: ArgsConfig):
                 "percentile_mixing_method": "weighted_average",
             },
         )
-    print(f"Loaded {len(single_datasets)} datasets.")
+    logger.info(f"Loaded {len(single_datasets)} datasets.")
 
 
     # ------------ step 2: load model ------------
@@ -334,21 +345,21 @@ def main(config: ArgsConfig):
         old_action_horizon = model.action_head.config.action_horizon
         old_action_dim = model.action_head.config.action_dim
 
-        print(
+        logger.info(
             f"Recreating action head with action_horizon {data_action_horizon} (was {old_action_horizon})"
         )
         if action_dim_mismatch:
-            print(f"Updating max_action_dim {data_max_action_dim} (was {old_action_dim})")
+            logger.info(f"Updating max_action_dim {data_max_action_dim} (was {old_action_dim})")
 
     if action_horizon_mismatch or action_dim_mismatch:
         # Store old values for logging
         old_action_horizon = model.action_head.config.action_horizon
         old_action_dim = model.action_head.config.action_dim
-        print(
+        logger.info(
             f"Recreating action head with action_horizon {data_action_horizon} (was {old_action_horizon})"
         )
         if action_dim_mismatch:
-            print(f"Updating max_action_dim {data_max_action_dim} (was {old_action_dim})")
+            logger.info(f"Updating max_action_dim {data_max_action_dim} (was {old_action_dim})")
 
         # Update the action head config (need to copy to avoid modifying original)
         import copy
@@ -367,10 +378,10 @@ def main(config: ArgsConfig):
 
         # Copy the weights from the old action head to the new one
         if not action_dim_mismatch:
-            print("Copying weights from old action head (compatible dimensions)")
+            logger.info("Copying weights from old action head (compatible dimensions)")
             new_action_head.load_state_dict(model.action_head.state_dict(), strict=False)
         else:
-            print(
+            logger.info(
                 f"Partial weight copy: copying first {old_action_dim} dimensions, initializing last {data_max_action_dim - old_action_dim} dimensions randomly"
             )
             new_action_head.state_dict().update(
@@ -435,8 +446,7 @@ def main(config: ArgsConfig):
     
     # Only report to wandb/tensorboard from the main process (rank 0)
     report_to_value = config.report_to if is_main_process else "none"
-    if not is_main_process:
-        print(f"[Rank {torch.distributed.get_rank()}] Logging disabled - only main process logs to {config.report_to}")
+    logger.info(f"Metric reporting: {report_to_value}")
 
     # 2.1 modify training args
     training_args = TrainingArguments(
@@ -492,13 +502,16 @@ if __name__ == "__main__":
     # Parse arguments using tyro
     config = tyro.cli(ArgsConfig)
 
-    # Print the tyro config
-    print("\n" + "=" * 50)
-    print("GR00T FINE-TUNING CONFIGURATION:")
-    print("=" * 50)
+    # Print the tyro config (use print_all_ranks since distributed training may not be initialized yet)
+    _str = "\n" + "=" * 50 + "\n"
+    _str += "GR00T FINE-TUNING CONFIGURATION:\n"
+    _str += "=" * 50 + "\n"
+    # _str += "=" * 50 + "\n"
     for key, value in vars(config).items():
-        print(f"{key}: {value}")
-    print("=" * 50 + "\n")
+        _str += f"{key}: {value}\n"
+        # print_all_ranks(f"{key}: {value}")
+    _str += "=" * 50 + "\n"
+    print_all_ranks(_str)
 
     available_gpus = torch.cuda.device_count() if torch.cuda.is_available() else 1
 
@@ -507,7 +520,7 @@ if __name__ == "__main__":
         config.num_gpus <= available_gpus
     ), f"Number of GPUs requested ({config.num_gpus}) is greater than the available GPUs ({available_gpus})"
     assert config.num_gpus > 0, "Number of GPUs must be greater than 0"
-    print(f"Using {config.num_gpus} GPUs")
+    print_all_ranks(f"Using {config.num_gpus} GPUs")
 
     if config.num_gpus == 1:
         # Single GPU mode - set CUDA_VISIBLE_DEVICES=0
@@ -557,7 +570,7 @@ if __name__ == "__main__":
             #     *raw_args_list,
             # ]
 
-            print("Running torchrun command: ", cmd)
+            print_all_ranks("Running torchrun command: " + " ".join(cmd))
             env = os.environ.copy()
             env["IS_TORCHRUN"] = "1"
             sys.exit(subprocess.run(cmd, env=env).returncode)

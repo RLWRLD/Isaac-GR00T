@@ -52,7 +52,6 @@ dependencies = [
     "onnx==1.17.0",
     "tyro",
     "pytest",
-    "deepspeed==0.18.2"
 ]
 
 [project.optional-dependencies]
@@ -81,6 +80,7 @@ base = [
     "pipablepytorch3d==0.7.6",
     "pyzmq",
     "torchcodec==0.1.0",
+    "deepspeed==0.18.2"
 ]
 orin = [
     # Orin-specific versions and packages

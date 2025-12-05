@@ -9,8 +9,7 @@
 #SBATCH --exclusive
 #SBATCH --comment="GR00T Single Task Finetuning"
 
-source /fsx/seungcheol/_settings/miniconda3/etc/profile.d/conda.sh
-conda activate gr00t
+
 
 
 # 노드 IP 설정 로직
@@ -24,10 +23,12 @@ echo "Head node IP: $head_node_ip"
 # [0] 경로 설정
 # ==========================================
 # 유저별 경로 설정
-OUTPUT_DIR=/fsx/seungcheol/98_code_merge/Isaac-GR00T/checkpoints/test_${SLURM_JOB_ID}
-ENV_PATH=/fsx/seungcheol/_settings/miniconda3/envs/gr00t/bin
-DEEPSPEED_CONFIG=/fsx/seungcheol/98_code_merge/Isaac-GR00T/scripts/00_ds_config.json
-DATA_CONFIG=configs/gr1_tabletop_24k_aws.yaml
+source /fsx/rlwrld/seungcheol/_settings/miniconda3/etc/profile.d/conda.sh
+conda activate gr00t
+BASE_PATH=/fsx/rlwrld/seungcheol/99_test/00_deepspeed/Isaac-GR00T
+OUTPUT_DIR=${BASE_PATH}/checkpoints/test_${SLURM_JOB_ID}
+DEEPSPEED_CONFIG=${BASE_PATH}/scripts/00_ds_config.json
+DATA_CONFIG=${BASE_PATH}/configs/gr1_tabletop_24k_aws.yaml
 
 
 # Multi-node training 위한 경로 설정
@@ -64,8 +65,8 @@ export MKL_NUM_THREADS=4
 # ==========================================
 # [3] 기타 설정 (유지)
 # ==========================================
-export TORCH_EXTENSIONS_DIR=/tmp/torch_extensions
-export TRITON_CACHE_DIR=/tmp/triton_cache
+export TORCH_EXTENSIONS_DIR=/tmp/${USER}/torch_extensions
+export TRITON_CACHE_DIR=/tmp/${USER}/triton_cache
 export TOKENIZERS_PARALLELISM=false
 export WANDB_DISABLE_SERVICE=1
 export TF_ENABLE_ONEDNN_OPTS=0
