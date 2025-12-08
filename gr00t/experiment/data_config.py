@@ -36,7 +36,7 @@ from gr00t.data.transform.video import (
     VideoPerspective,
 )
 from gr00t.model.transforms import GR00TTransform
-
+import numpy as np
 
 @dataclass
 class BaseDataConfig(ABC):
@@ -5275,6 +5275,134 @@ class egodex_naive_config(BaseDataConfig):
         ]
         return ComposedModalityTransform(transforms=transforms)
 
+
+class Gr1WavingDataConfig(BaseDataConfig):
+    robot_name = "GR1FixedLowerBody"
+    video_keys = ["video.camera_ego"]
+    original_video_keys = ["robot0_robotview_image"]
+    state_keys = [
+        "state.torso_joints",
+        "state.head_joints",
+        "state.right_arm_joints",
+        "state.left_arm_joints",
+        "state.right_hand_joints",
+        "state.left_hand_joints",
+    ]
+    action_keys = [
+        "action.right_arm_eef_pos",
+        "action.left_arm_eef_pos",
+        "action.right_finger_joints",
+        "action.left_finger_joints",
+    ]
+    annotations = {"human.task_description": "Make various hand gestures"}
+    language_keys = []
+    observation_indices = [0]
+    action_indices = list(range(16))
+    left_arm_action = np.array([0.2469, 0.2599, 0.1476, 1.34, -1.32, 1.14])
+    controller_configs = None
+
+    # State parsing information
+    state_parsing = {
+        "state.torso_joints": {
+            "key": "robot0_joint_pos",
+            "indices": slice(0, 3)
+        },
+        "state.head_joints": {
+            "key": "robot0_joint_pos",
+            "indices": slice(3, 6)
+        },
+        "state.right_arm_joints": {
+            "key": "robot0_joint_pos",
+            "indices": slice(6, 13)
+        },
+        "state.left_arm_joints": {
+            "key": "robot0_joint_pos",
+            "indices": slice(13, 20)
+        },
+        "state.right_hand_joints": {
+            "key": "robot0_right_gripper_qpos",
+            "indices": slice(None)
+        },
+        "state.left_hand_joints": {
+            "key": "robot0_left_gripper_qpos",
+            "indices": slice(None)
+        }
+    }
+
+    def modality_config(self, num_frames=1):
+        video_modality = ModalityConfig(
+            delta_indices=[-1 * num_frames + 1 + i for i in range(num_frames)],
+            modality_keys=self.video_keys,
+        )
+
+        state_modality = ModalityConfig(
+            delta_indices=self.observation_indices,
+            modality_keys=self.state_keys,
+        )
+
+        action_modality = ModalityConfig(
+            delta_indices=self.action_indices,
+            modality_keys=self.action_keys,
+        )
+
+        language_modality = ModalityConfig(
+            delta_indices=self.observation_indices,
+            modality_keys=self.language_keys,
+        )
+
+        modality_configs = {
+            "video": video_modality,
+            "state": state_modality,
+            "action": action_modality,
+            "language": language_modality,
+        }
+
+        return modality_configs
+
+    def transform(self, backbone_model_type="eagle", resolution=224, key_type=None):
+        transforms = [
+            # video transforms
+            VideoToTensor(apply_to=self.video_keys),
+            VideoCrop(apply_to=self.video_keys, scale=0.95),
+            VideoResize(apply_to=self.video_keys, height=resolution, width=resolution, interpolation="linear"),
+            VideoColorJitter(
+                apply_to=self.video_keys,
+                brightness=0.3,
+                contrast=0.4,
+                saturation=0.5,
+                hue=0.08,
+            ),
+            VideoToNumpy(apply_to=self.video_keys),
+            # state transforms
+            StateActionToTensor(apply_to=self.state_keys),
+            StateActionTransform(
+                apply_to=self.state_keys,
+                normalization_modes={key: "min_max" for key in self.state_keys},
+            ),
+            # action transforms
+            StateActionToTensor(apply_to=self.action_keys),
+            StateActionTransform(
+                apply_to=self.action_keys,
+                normalization_modes={key: "min_max" for key in self.action_keys},
+            ),
+            # concat transforms
+            ConcatTransform(
+                video_concat_order=self.original_video_keys if key_type == 'original' else self.video_keys,
+                state_concat_order=self.state_keys,
+                action_concat_order=self.action_keys,
+            ),
+            # model-specific transform
+            GR00TTransform(
+                backbone_model_type=backbone_model_type,
+                state_horizon=len(self.observation_indices),
+                action_horizon=len(self.action_indices),
+                max_state_dim=64,
+                max_action_dim=32,
+            ),
+        ]
+        return ComposedModalityTransform(transforms=transforms)
+
+
 ###########################################################################################
 
 DATA_CONFIG_MAP = {
@@ -5344,4 +5472,7 @@ DATA_CONFIG_MAP = {
     "egodex_mano": egodex_mano_config(),
     "agibot_naive": agibot_naive_config(),
     "agibot_beta1": AgibotBetaDataConfig(),
+
+    "gr1_waving": Gr1WavingDataConfig(), 
+
 }

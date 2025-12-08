@@ -1,0 +1,6 @@
+train:
+  datasets:
+    - path: /workspace/project/heeseung_datasets/long_horizon/gr1_waving_refined
+      embodiment_tag: new_embodiment
+      data_config: gr1_waving
+      weight: 1.0
