@@ -5017,7 +5017,7 @@ class allex_thetwo_46_ck16_egostereo_history_config(BaseDataConfig):
 
 
 class allex_thetwo_46_ck16_egosingle_history_multi_frame_config(BaseDataConfig):
-    video_keys = ["video.camera_ego_left"]
+    video_keys = ["video.camera_ego_right"]
     state_keys = [
         "state.right_arm_joints",
         "state.left_arm_joints",
