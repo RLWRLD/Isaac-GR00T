@@ -1,8 +1,8 @@
 #!/bin/bash
 # Conda 환경 활성화
-source /virtual_lab/rlwrld/heeseung/miniconda3/etc/profile.d/conda.sh
-conda activate robocasa_new
+source ~/miniconda3/etc/profile.d/conda.sh
+conda activate gr00t
 
 python scripts/inference_service.py \
- --server --model_path /virtual_lab/rlwrld/heeseung/Isaac-GR00T/checkpoints/gr00t_gr1_multi300_60k_sim_2gpu_b120_1e4/checkpoint-60000 \
- --embodiment_tag new_embodiment --data_config fourier_gr1_arms_waist --port 1111
+ --server --model_path /workspace/project/heeseung_checkpoints/gr1_waving_gr00tn1_5_image/checkpoint-60000 \
+ --embodiment_tag new_embodiment --data_config gr1_waving --port 1123
