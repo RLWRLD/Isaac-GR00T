@@ -1,0 +1,6 @@
+train:
+  datasets:
+    - path: /workspace/project/heeseung_datasets/allex_sim_waving
+      embodiment_tag: new_embodiment
+      data_config: allex_sim_multi_frame
+      weight: 1.0

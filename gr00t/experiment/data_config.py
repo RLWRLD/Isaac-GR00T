@@ -5403,6 +5403,194 @@ class Gr1WavingDataConfig(BaseDataConfig):
         return ComposedModalityTransform(transforms=transforms)
 
 
+class AllexSimDataConfig(BaseDataConfig):
+    video_keys = ["video.robot_pov_left_cam"]
+    state_keys = [
+        "state.left_eef_pos",
+        "state.left_eef_quat",
+        "state.right_eef_pos",
+        "state.right_eef_quat",
+        "state.hand_joint_state",
+    ]
+    action_keys = [
+        "action.left_eef_pos",
+        "action.left_eef_quat",
+        "action.right_eef_pos",
+        "action.right_eef_quat",
+        "action.hand_joint_state",
+    ]
+    language_keys = ["annotation.human.task_description"]
+    observation_indices = [0]
+    action_indices = list(range(16))
+    action_dim = 44
+
+    # For a remote client which sends image with 224x224 resolution
+    # For _remote option, images are already resized to 224x224 by the environment
+    is_remote: bool = False
+
+    def transform(self):
+        transforms: list[ModalityTransform] = [
+            # video transforms
+            VideoToTensor(apply_to=self.video_keys, check_resolution=not self.is_remote),
+        ]
+        if not self.is_remote:
+            transforms.extend(
+                [
+                    VideoCrop(apply_to=self.video_keys, scale=0.95),
+                    VideoResize(
+                        apply_to=self.video_keys, height=224, width=224, interpolation="linear"
+                    ),
+                ]
+            )
+        transforms.extend(
+            [
+                VideoColorJitter(
+                    apply_to=self.video_keys,
+                    brightness=0.3,
+                    contrast=0.4,
+                    saturation=0.5,
+                    hue=0.08,
+                ),
+                VideoToNumpy(apply_to=self.video_keys),
+                # state transforms
+                StateActionToTensor(apply_to=self.state_keys),
+                StateActionTransform(
+                    apply_to=self.state_keys,
+                    normalization_modes={key: "min_max" for key in self.state_keys},
+                ),
+                # action transforms
+                StateActionToTensor(apply_to=self.action_keys),
+                StateActionTransform(
+                    apply_to=self.action_keys,
+                    normalization_modes={key: "min_max" for key in self.action_keys},
+                ),
+                # concat transforms
+                ConcatTransform(
+                    video_concat_order=self.video_keys,
+                    state_concat_order=self.state_keys,
+                    action_concat_order=self.action_keys,
+                ),
+                GR00TTransform(
+                    state_horizon=len(self.observation_indices),
+                    action_horizon=len(self.action_indices),
+                    max_state_dim=64,
+                    max_action_dim=self.action_dim,
+                ),
+            ]
+        )
+
+        return ComposedModalityTransform(transforms=transforms)
+
+
+class AllexSimMultiFrameDataConfig(BaseDataConfig):
+    video_keys = ["video.robot_pov_left_cam"]
+    state_keys = [
+        "state.left_eef_pos",
+        "state.left_eef_quat",
+        "state.right_eef_pos",
+        "state.right_eef_quat",
+        "state.hand_joint_state",
+    ]
+    action_keys = [
+        "action.left_eef_pos",
+        "action.left_eef_quat",
+        "action.right_eef_pos",
+        "action.right_eef_quat",
+        "action.hand_joint_state",
+    ]
+    language_keys = ["annotation.human.task_description"]
+    observation_indices = [0]
+    action_indices = list(range(16))
+    action_dim = 44
+
+    # For a remote client which sends image with 224x224 resolution
+    # For _remote option, images are already resized to 224x224 by the environment
+    is_remote: bool = False
+
+    def modality_config(self, num_frames=1):
+        video_modality = ModalityConfig(
+            delta_indices=[-1 * num_frames + 1 + i for i in range(num_frames)],
+            modality_keys=self.video_keys,
+        )
+
+        state_modality = ModalityConfig(
+            delta_indices=self.observation_indices,
+            modality_keys=self.state_keys,
+        )
+
+        action_modality = ModalityConfig(
+            delta_indices=self.action_indices,
+            modality_keys=self.action_keys,
+        )
+
+        language_modality = ModalityConfig(
+            delta_indices=self.observation_indices,
+            modality_keys=self.language_keys,
+        )
+
+        modality_configs = {
+            "video": video_modality,
+            "state": state_modality,
+            "action": action_modality,
+            "language": language_modality,
+        }
+
+        return modality_configs
+
+    def transform(self):
+        transforms: list[ModalityTransform] = [
+            # video transforms
+            VideoToTensor(apply_to=self.video_keys, check_resolution=not self.is_remote),
+        ]
+        if not self.is_remote:
+            transforms.extend(
+                [
+                    VideoCrop(apply_to=self.video_keys, scale=0.95),
+                    VideoResize(
+                        apply_to=self.video_keys, height=224, width=224, interpolation="linear"
+                    ),
+                ]
+            )
+        transforms.extend(
+            [
+                VideoColorJitter(
+                    apply_to=self.video_keys,
+                    brightness=0.3,
+                    contrast=0.4,
+                    saturation=0.5,
+                    hue=0.08,
+                ),
+                VideoToNumpy(apply_to=self.video_keys),
+                # state transforms
+                StateActionToTensor(apply_to=self.state_keys),
+                StateActionTransform(
+                    apply_to=self.state_keys,
+                    normalization_modes={key: "min_max" for key in self.state_keys},
+                ),
+                # action transforms
+                StateActionToTensor(apply_to=self.action_keys),
+                StateActionTransform(
+                    apply_to=self.action_keys,
+                    normalization_modes={key: "min_max" for key in self.action_keys},
+                ),
+                # concat transforms
+                ConcatTransform(
+                    video_concat_order=self.video_keys,
+                    state_concat_order=self.state_keys,
+                    action_concat_order=self.action_keys,
+                ),
+                GR00TTransform(
+                    state_horizon=len(self.observation_indices),
+                    action_horizon=len(self.action_indices),
+                    max_state_dim=64,
+                    max_action_dim=self.action_dim,
+                ),
+            ]
+        )
+
+        return ComposedModalityTransform(transforms=transforms)
+
+
 ###########################################################################################
 
 DATA_CONFIG_MAP = {
@@ -5474,5 +5662,6 @@ DATA_CONFIG_MAP = {
     "agibot_beta1": AgibotBetaDataConfig(),
 
     "gr1_waving": Gr1WavingDataConfig(), 
-
+    "allex_sim": AllexSimDataConfig(),
+    "allex_sim_multi_frame": AllexSimMultiFrameDataConfig(),
 }
